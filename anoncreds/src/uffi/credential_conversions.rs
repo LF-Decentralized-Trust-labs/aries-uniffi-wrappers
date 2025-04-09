@@ -41,7 +41,7 @@ impl CredentialConversions {
             None => None
         };
 
-        let w3c_credential = credential_to_w3c(&credential.0, &issuer_id, version)?;
+        let w3c_credential: W3CCredential = credential_to_w3c(&credential.0, &issuer_id, version)?;
 
         Ok(serde_json::to_string(&w3c_credential)?)
     }

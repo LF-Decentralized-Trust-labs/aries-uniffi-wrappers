@@ -19,6 +19,8 @@ use anoncreds_clsignatures::RevocationRegistryDelta as RustRevocationRegistryDel
 use std::collections::HashMap;
 use std::sync::Arc;
 
+use anoncreds::data_types::w3c::credential::W3CCredential as RustW3cCredential;
+
 pub struct Schema(pub RustSchema);
 
 #[uniffi::export]
@@ -221,6 +223,50 @@ impl Credential {
             .map(|(key, value)| (key.clone(), value.raw.clone()))
             .collect()
     }
+}
+
+pub struct W3CCredential(pub RustW3cCredential);
+
+#[uniffi::export]
+impl W3CCredential {
+    
+    #[uniffi::constructor]
+    pub fn new(json: String) -> Result<Arc<Self>, ErrorCode> {
+        Ok(Arc::new(Self(serde_json::from_str::<RustW3cCredential>(&json)?)))
+    }
+    
+    pub fn to_json(&self) -> String {
+        serde_json::to_string(&self.0).unwrap()
+    }
+
+    pub fn context(&self) -> String {
+        serde_json::to_string(&self.0.context).unwrap()
+    }
+
+    pub fn id(&self) -> Option<String> {
+        self.0.id.as_ref().map(|uri| uri.0.clone())
+    }
+    
+    pub fn r#type(&self) -> Vec<String> {
+        self.0.type_.0.iter().cloned().collect()
+    }
+
+    pub fn issuer(&self) -> String {
+        serde_json::to_string(&self.0.issuer).unwrap()
+    }
+
+    pub fn credential_subject(&self) -> String {
+        serde_json::to_string(&self.0.credential_subject).unwrap()
+    }
+
+    pub fn issuance_date(&self) -> String {
+        serde_json::to_string(&self.0.issuance_date).unwrap()
+    }
+
+    pub fn proof(&self) -> String {
+        serde_json::to_string(&self.0.proof).unwrap()
+    }
+
 }
 
 #[derive(uniffi::Record)]

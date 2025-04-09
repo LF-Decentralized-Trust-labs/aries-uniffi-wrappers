@@ -3,6 +3,7 @@ pub mod issuer;
 pub mod prover;
 pub mod types;
 pub mod verifier;
+pub mod w3c;
 pub mod credential_conversions;
 
 #[uniffi::export]
