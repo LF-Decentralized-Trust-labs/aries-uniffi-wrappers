@@ -22,14 +22,11 @@ interface Schema {};
 interface Verifier {
     constructor();
 };
-interface CredentialConversions {
-    constructor();
-};
+
 
 interface W3cProcess {
     constructor();
 };
-
 interface W3CCredential {};
 
 namespace anoncreds_uniffi {};

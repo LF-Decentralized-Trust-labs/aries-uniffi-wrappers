@@ -15,11 +15,13 @@ use anoncreds::types::{
     RevocationRegistryDefinition as RustRevocationRegistryDefinition,
     RevocationRegistryDefinitionPrivate as RustRevocationRegistryDefinitionPrivate,
 };
+use anoncreds::data_types::w3c::credential::W3CCredential as RustW3cCredential;
 use anoncreds_clsignatures::RevocationRegistryDelta as RustRevocationRegistryDelta;
 use std::collections::HashMap;
 use std::sync::Arc;
+use anoncreds::data_types::w3c::context::Context;
 
-use anoncreds::data_types::w3c::credential::W3CCredential as RustW3cCredential;
+
 
 pub struct Schema(pub RustSchema);
 
@@ -120,6 +122,7 @@ pub struct CredentialRequestTuple {
     pub metadata: Arc<CredentialRequestMetadata>,
 }
 
+#[derive(Debug)]
 pub struct RevocationRegistryDefinition(pub RustRevocationRegistryDefinition);
 
 #[uniffi::export]
@@ -184,6 +187,7 @@ impl<'a> From<&'a CredentialRevocationConfig> for RustCredentialRevocationConfig
     }
 }
 
+#[derive(Debug)]
 pub struct Credential(pub RustCredential);
 
 #[uniffi::export]
@@ -225,6 +229,7 @@ impl Credential {
     }
 }
 
+#[derive(Debug)]
 pub struct W3CCredential(pub RustW3cCredential);
 
 #[uniffi::export]
@@ -232,7 +237,18 @@ impl W3CCredential {
     
     #[uniffi::constructor]
     pub fn new(json: String) -> Result<Arc<Self>, ErrorCode> {
-        Ok(Arc::new(Self(serde_json::from_str::<RustW3cCredential>(&json)?)))
+        println!("new w3c credential constructor");
+
+        match serde_json::from_str::<RustW3cCredential>(&json) {
+            Ok(parsed_cred) => {
+                println!("Credential created: {:?}", parsed_cred);
+                Ok(Arc::new(Self(parsed_cred)))
+            }
+            Err(e) => {
+                println!("Error creating credential: {:?}", e);
+                Err(e.into()) // assuming your ErrorCode implements From<serde_json::Error>
+            }
+        }
     }
     
     pub fn to_json(&self) -> String {
@@ -240,7 +256,13 @@ impl W3CCredential {
     }
 
     pub fn context(&self) -> String {
-        serde_json::to_string(&self.0.context).unwrap()
+        self.0.context.0
+        .iter()
+        .map(|ctx| match ctx {
+            Context::URI(uri) => uri.0.clone(),
+            Context::Object(obj) => obj.to_string(),
+        })
+        .collect()
     }
 
     pub fn id(&self) -> Option<String> {

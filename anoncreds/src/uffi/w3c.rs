@@ -6,10 +6,7 @@ use super::types::{
 
 use anoncreds::Error;
 use std::sync::Arc;
-
-use anoncreds::types::{
-    LinkSecret,
-};
+use anoncreds::types::LinkSecret;
 
 pub struct W3cProcess {}
 
@@ -30,6 +27,7 @@ impl W3cProcess {
         rev_reg_def: Option<Arc<RevocationRegistryDefinition>>,
     ) -> Result<Arc<W3CCredential>, ErrorCode> {
 
+        eprintln!("process credential w3c");
         let link_secret =
             LinkSecret::try_from(link_secret.as_str()).map_err(|err| Error::from(err))?;
         let rev_reg_def = rev_reg_def.as_ref().map(|def| &def.0);

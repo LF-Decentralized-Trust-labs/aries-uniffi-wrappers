@@ -22,9 +22,6 @@ interface Schema {};
 interface Verifier {
     constructor();
 };
-interface CredentialConversions {
-    constructor();
-};
 
 interface W3cProcess {
     constructor();

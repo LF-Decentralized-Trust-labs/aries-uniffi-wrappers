@@ -173,7 +173,7 @@ impl Issuer {
     ) -> Result<Arc<Credential>, ErrorCode> {
         if attr_raw_values.is_empty() {
             return Err(ErrorCode::Input {
-                message: "Cannot create credential with no attribute".to_string(),
+                msg: "Cannot create credential with no attribute".to_string(),
             });
         }
 
