@@ -89,3 +89,8 @@ mkdir -p $OUT_PATH
 cargo install --bin uniffi-bindgen-kotlin-multiplatform uniffi_bindgen_kotlin_multiplatform@0.1.0
 CURRENT_ARCH=$(rustc --version --verbose | grep host | cut -f2 -d' ')
 uniffi-bindgen-kotlin-multiplatform --lib-file ./target/$CURRENT_ARCH/release/$LIBRARY_NAME --out-dir $OUT_PATH uniffi/anoncreds_uniffi.udl
+
+cargo install --bin uniffi-bindgen-kotlin-multiplatform uniffi_bindgen_kotlin_multiplatform@0.1.0
+
+cargo run --bin uniffi-bindgen generate --library target/aarch64-linux-android/release/libanoncreds_uniffi.so   --language kotlin --out-dir out
+ uniffi-bindgen-kotlin-multiplatform --lib-file target/aarch64-linux-android/release/libanoncreds_uniffi.so --out-dir out uniffi/anoncreds_uniffi.udl

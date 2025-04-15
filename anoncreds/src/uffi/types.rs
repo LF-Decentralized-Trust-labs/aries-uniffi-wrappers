@@ -289,6 +289,10 @@ impl W3CCredential {
         serde_json::to_string(&self.0.proof).unwrap()
     }
 
+    pub fn valid_from(&self) -> String {
+        serde_json::to_string(&self.0.valid_from).unwrap()
+    }
+
 }
 
 #[derive(uniffi::Record)]
@@ -336,3 +340,4 @@ define_serializable_struct!(
     RevocationRegistryDefinitionPrivate,
     RustRevocationRegistryDefinitionPrivate
 );
+//define_serializable_struct!(W3CCredential,RustW3cCredential);

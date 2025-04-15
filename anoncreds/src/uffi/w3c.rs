@@ -18,6 +18,8 @@ impl W3cProcess {
 
 #[uniffi::export]
 impl W3cProcess {
+
+
     pub fn process_credential(
         &self,
         cred: Arc<W3CCredential>,

@@ -27,6 +27,10 @@ interface W3cProcess {
     constructor();
 };
 
+interface CredentialConversions {
+    constructor();
+};
+
 interface W3CCredential {};
 
 namespace anoncreds_uniffi {};

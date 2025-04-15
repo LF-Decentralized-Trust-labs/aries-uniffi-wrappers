@@ -3,9 +3,8 @@ pub mod issuer;
 pub mod prover;
 pub mod types;
 pub mod verifier;
-//pub mod credential_conversions;
+pub mod credential_conversions;
 pub mod w3c;
-//pub mod w3ctest;
 
 #[uniffi::export]
 pub fn set_default_logger() -> Result<(), error::ErrorCode> {

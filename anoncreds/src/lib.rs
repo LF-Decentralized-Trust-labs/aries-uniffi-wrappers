@@ -10,7 +10,7 @@ use uffi::types::{
     W3CCredential
 };
 use uffi::verifier::Verifier;
-//use uffi::credential_conversions::CredentialConversions;
+use uffi::credential_conversions::CredentialConversions;
 
 
 uniffi::include_scaffolding!("anoncreds_uniffi");
