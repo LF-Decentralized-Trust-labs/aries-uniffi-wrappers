@@ -16,7 +16,7 @@ Kotlin wrappers are generated with [uniffi-kotlin-multiplatform-bindings](https:
 The Swift wrappers are distributed as a Swift Package.
 To use the wrappers in your project, add the following dependency to your `Package.swift`:
 ```swift
-    .package(url: "https://github.com/hyperledger/aries-uniffi-wrappers", from: "0.1.0"),
+    .package(url: "https://github.com/LF-Decentralized-Trust-labs/aries-uniffi-wrappers", from: "0.1.0"),
 ```
 
 And add the following dependency to your target:
@@ -42,7 +42,7 @@ To add a github packages repository in a seperate project you will have to have 
         mavenCentral()
         google()
         maven {
-            setUrl("https://maven.pkg.github.com/hyperledger/aries-uniffi-wrappers")
+            setUrl("https://maven.pkg.github.com/LF-Decentralized-Trust-labs/aries-uniffi-wrappers")
             credentials {
                 username = getExtraString("githubUsername")
                 password = getExtraString("githubToken")
