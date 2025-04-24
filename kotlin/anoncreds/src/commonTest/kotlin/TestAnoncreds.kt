@@ -2,7 +2,6 @@ package org.hyperledger.anoncreds_uniffi
 
 import anoncreds_uniffi.CredentialRevocationConfig
 import anoncreds_uniffi.Disposable
-import anoncreds_uniffi.FFIObject
 import anoncreds_uniffi.Issuer
 import anoncreds_uniffi.PresentationRequest
 import anoncreds_uniffi.Prover

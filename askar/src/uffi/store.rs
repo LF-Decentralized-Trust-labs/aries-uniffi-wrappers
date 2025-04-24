@@ -9,7 +9,7 @@ use tokio::sync::RwLock;
 macro_rules! STORE_CLOSED_ERROR {
     () => {
         ErrorCode::Unexpected {
-            message: String::from("Store is already closed"),
+            error_message: String::from("Store is already closed"),
         }
     };
 }
@@ -152,6 +152,8 @@ impl AskarStore {
         Ok(())
     }
 
+    // `close()` is used in Kotlin to destroy Uniffi object so we rename it here
+    #[uniffi::method(name = "close_store")]
     pub async fn close(&self) -> Result<(), ErrorCode> {
         let store = self.store.write().await.take();
         store.ok_or(STORE_CLOSED_ERROR!())?.close().await?;

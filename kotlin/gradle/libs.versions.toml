@@ -1,0 +1,12 @@
+[versions]
+agp = "8.9.2"
+kotlin = "2.1.20"
+
+[libraries]
+
+
+[plugins]
+androidLibrary = { id = "com.android.library", version.ref = "agp" }
+kotlinMultiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
+kotlinSerialization = {id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin"}
+kotlinJvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }

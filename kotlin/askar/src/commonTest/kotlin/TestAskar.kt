@@ -7,14 +7,13 @@ import askar_uniffi.AskarStore
 import askar_uniffi.AskarStoreManager
 import askar_uniffi.Disposable
 import askar_uniffi.LocalKeyFactory
-import kotlinx.serialization.json.*
 import kotlinx.coroutines.runBlocking
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
-import kotlin.test.assertTrue
+
 
 class TestAskar {
 
@@ -48,9 +47,9 @@ class TestAskar {
     @AfterTest
     fun afterEach(){
         runBlocking{
-            session.close()
+            session.closeSession()
             try{
-                store.close()
+                store.closeStore()
             }catch(e: Throwable){
                 println("Failed to close the store")
                 println(e.message)

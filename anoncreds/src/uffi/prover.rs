@@ -165,7 +165,7 @@ impl Prover {
             &tails_reader,
         )
         .map_err(|err| ErrorCode::Input {
-            message: format!("Witness error: {}", err),
+            error_message: format!("Witness error: {}", err),
         })?;
         let rev_reg = RevocationRegistry::from(rev_reg_delta.0.clone());
         Ok(Arc::new(CredentialRevocationState(

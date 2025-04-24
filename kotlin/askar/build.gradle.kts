@@ -1,62 +1,70 @@
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.plugin.KotlinSourceSetTree
-import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeTarget
 import java.util.*
-
+import gobley.gradle.cargo.dsl.jvm
+import gobley.gradle.GobleyHost
+import gobley.gradle.cargo.dsl.linux
+import gobley.gradle.Variant
+import gobley.gradle.cargo.dsl.android
+import gobley.gradle.rust.targets.RustPosixTarget
+import gobley.gradle.rust.targets.RustTarget
+import gobley.gradle.rust.targets.RustWindowsTarget
 plugins {
-    kotlin("multiplatform") version "1.9.20"
-    kotlin("plugin.serialization") version "1.9.20"
-    id("com.android.library") version "8.0.0"
+    alias(libs.plugins.kotlinMultiplatform)
+    alias(libs.plugins.kotlinSerialization)
+    alias(libs.plugins.androidLibrary)
+
+    id("dev.gobley.cargo") version "0.2.0"
+    id("dev.gobley.uniffi") version "0.2.0"
+    id("dev.gobley.rust") version "0.2.0"
+    kotlin("plugin.atomicfu") version libs.versions.kotlin
     id("maven-publish")
 }
 
-repositories {
-    mavenCentral()
-    google()
-}
+cargo {
+    packageDirectory = layout.projectDirectory.dir("rust")
 
-buildscript{
-    repositories{
-        mavenCentral()
-        google()
+    jvmVariant = Variant.Release
+    nativeVariant = Variant.Release
+
+    // Use cross when building Linux on Mac
+    if(GobleyHost.Platform.MacOS.isCurrent){
+        val home = System.getProperty("user.home")
+        val crossFile = File("$home/.cargo/bin/cross")
+        builds{
+            linux{
+                this@linux.debug.buildTaskProvider.configure{
+                    this@configure.cargo = crossFile
+                }
+                this@linux.release.buildTaskProvider.configure{
+                    this@configure.cargo = crossFile
+                }
+            }
+        }
     }
-    dependencies{
-        classpath("org.jetbrains.kotlinx:atomicfu-gradle-plugin:0.22.0")
+
+    builds.jvm{
+        embedRustLibrary = true
+        if(GobleyHost.Platform.MacOS.isCurrent && rustTarget == RustPosixTarget.MinGWX64){
+            release.dynamicLibraries.set(listOf("askar_uniffi.dll"))
+            debug.dynamicLibraries.set(listOf("askar_uniffi.dll"))
+        }
     }
 }
 
-apply(plugin = "kotlinx-atomicfu")
-
-dependencies {
-    testImplementation("junit:junit:4.13.2")
-    testImplementation("org.junit.jupiter:junit-jupiter:5.8.1")
-    testImplementation("org.testng:testng:7.1.0")
-    testImplementation("org.testng:testng:7.1.0")
-}
-
-val askarDir = file("../../askar")
-val uniffiBindings = askarDir.resolve("out/kmpp-uniffi")
-val jniLibs = uniffiBindings.resolve("jniLibs")
-
-val processBinaries = tasks.register("processBinaries", Copy::class) {
-    val directory = buildDir
-        .resolve("processedResources")
-        .resolve("jvm")
-        .resolve("main")
-
-    from(uniffiBindings.resolve("macos-native").resolve("dynamic"))
-    include("*.dylib")
-    into(directory)
-}
-
-tasks.withType<ProcessResources>{
-    dependsOn(processBinaries)
+uniffi{
+    generateFromLibrary{
+        packageName = "askar_uniffi"
+        cdylibName = "askar_uniffi"
+        this@generateFromLibrary.disableJavaCleaner = true
+    }
 }
 
 // Stub secrets to let the project sync and build without the publication values set up
 ext["githubUsername"] = null
 ext["githubToken"] = null
-ext["askarVersion"] = "0.1.0"
-ext["wrapperVersion"] = "1"
+ext["askarVersion"] = "0.2.0"
+ext["wrapperVersion"] = "GOBLEY"
 
 val secretPropsFile = project.rootProject.file("local.properties")
 if(secretPropsFile.exists()) {
@@ -102,53 +110,23 @@ publishing{
     }
 }
 
-private enum class PlatformType {
-    APPLE,
-    ANDROID
-}
-
 kotlin {
     jvmToolchain(17)
     applyDefaultHierarchyTemplate()
 
-    fun addLibs(libDirectory: String, target: KotlinNativeTarget) {
-        target.compilations.getByName("main") {
-            val uniffi by cinterops.creating {
-                val headerDir = uniffiBindings.resolve("nativeInterop/cinterop/headers/askar_uniffi")
-                this.includeDirs(headerDir)
-                packageName("askar_uniffi.cinterop")
-                extraOpts("-libraryPath", libDirectory)
-            }
-        }
-
-        target.binaries.all {
-            linkerOpts("-L${libDirectory}", "-laskar_uniffi")
-            linkerOpts("-Wl,-framework,Security")
-        }
-
-        target.binaries{
-            sharedLib{
-                baseName = "askar_unifi"
-            }
-        }
-    }
-
-
     androidTarget{
         publishLibraryVariants("release")
-        compilations.all{
-            kotlinOptions.jvmTarget = "1.8"
+        compilerOptions {
+            jvmTarget.set(JvmTarget.JVM_11)
         }
         instrumentedTestVariant.sourceSetTree.set(KotlinSourceSetTree.test)
         unitTestVariant.sourceSetTree.set(KotlinSourceSetTree.unitTest)
     }
 
     jvm{
-        compilations.all{
-            kotlinOptions.jvmTarget = "1.8"
-            this.kotlinOptions {
-                freeCompilerArgs += listOf("-Xdebug")
-            }
+        compilerOptions {
+            jvmTarget.set(JvmTarget.JVM_17)
+            freeCompilerArgs.add("-Xdebug")
         }
 
         testRuns["test"].executionTask.configure{
@@ -156,71 +134,45 @@ kotlin {
         }
     }
 
-    macosX64{
-        val libDirectory = "${uniffiBindings}/macos-native/static"
-        addLibs(libDirectory, this)
-    }
+    macosX64()
 
-    macosArm64{
-        val libDirectory = "${uniffiBindings}/macos-native/static"
-        addLibs(libDirectory, this)
-    }
+    macosArm64()
 
-    iosX64 {
-        val libDirectory = "${askarDir}/target/x86_64-apple-ios/release"
-        addLibs(libDirectory, this)
-    }
+    iosX64()
 
-    iosSimulatorArm64 {
-        val libDirectory = "${askarDir}/target/aarch64-apple-ios-sim/release"
-        addLibs(libDirectory, this)
-    }
+    iosSimulatorArm64()
 
-    iosArm64 {
-        val libDirectory = "${askarDir}/target/aarch64-apple-ios/release"
-        addLibs(libDirectory, this)
-    }
+    iosArm64()
     
     sourceSets {
         val commonMain by getting {
-            val commonDir = uniffiBindings.resolve("commonMain").resolve("kotlin")
-            val file = commonDir.resolve("askar_uniffi").resolve("askar_uniffi.common.kt")
-            val find = Regex("\\t|(?:\\s{4})class ([a-zA-Z]{2,50})\\(\\n.{0,50}\\n.{0,20}: ErrorCode\\(\\) \\{(?:.|\\n){0,100}?(?:\\t|(?:\\s{4}))\\}")
-            val contents = file.readText().replace(find){
-                "class ${it.groupValues[1]}(override val message: kotlin.String): ErrorCode()"
-            }
-            file.writeText(contents)
-            kotlin.srcDir(commonDir)
             dependencies {
-                implementation("com.squareup.okio:okio:3.2.0")
-                implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.5.1")
-                implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.0-RC")
+//                implementation("com.squareup.okio:okio:3.2.0")
+                implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.8.1")
             }
         }
 
         val commonTest by getting {
             dependencies{
                 implementation(kotlin("test"))
+                implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2")
             }
         }
 
         val androidMain by getting {
-            kotlin.srcDir(uniffiBindings.resolve("jvmMain").resolve("kotlin"))
             dependencies{
-                implementation("net.java.dev.jna:jna:5.7.0@aar")
-                implementation("org.jetbrains.kotlinx:atomicfu:0.22.0")
+//                implementation("net.java.dev.jna:jna:5.7.0@aar")
+//                implementation("org.jetbrains.kotlinx:atomicfu:0.22.0")
             }
         }
 
         val jvmMain by getting {
-            kotlin.srcDir(uniffiBindings.resolve("jvmMain").resolve("kotlin"))
             dependencies{
-                implementation("net.java.dev.jna:jna:5.13.0")
+//                implementation("net.java.dev.jna:jna:5.13.0")
             }
         }
 
         val nativeMain by getting {
-            kotlin.srcDir(uniffiBindings.resolve("nativeMain").resolve("kotlin"))
         }
 
         all {
@@ -232,10 +184,10 @@ kotlin {
 
 
 android{
-    sourceSets["main"].jniLibs.srcDir(jniLibs)
     sourceSets["androidTest"].manifest.srcFile("src/androidTest/AndroidManifest.xml")
     namespace = "askar_uniffi"
-    compileSdk = 33
+    compileSdk = 35
+    ndkVersion = "26.1.10909125"
 
     defaultConfig{
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"

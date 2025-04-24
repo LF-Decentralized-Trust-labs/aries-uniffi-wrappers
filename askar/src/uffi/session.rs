@@ -29,7 +29,7 @@ impl Into<EntryOperation> for AskarEntryOperation {
 macro_rules! SESSION_CLOSED_ERROR {
     () => {
         ErrorCode::Unexpected {
-            message: String::from("Session is already closed"),
+            error_message: String::from("Session is already closed"),
         }
     };
 }
@@ -48,6 +48,9 @@ impl AskarSession {
 
 #[uniffi::export(async_runtime = "tokio")]
 impl AskarSession {
+
+    // `close()` is used in Kotlin to destroy Uniffi object so we rename it here
+    #[uniffi::method(name = "close_session")]
     pub async fn close(&self) -> Result<(), ErrorCode> {
         self.session.lock().await.take();
         Ok(())
@@ -127,7 +130,7 @@ impl AskarSession {
             Some(
                 serde_json::from_str::<EntryTagSet<'static>>(&tags)
                     .map_err(|err| ErrorCode::Input {
-                        message: format!("Error decoding tags: {}", err),
+                        error_message: format!("Error decoding tags: {}", err),
                     })?
                     .into_vec(),
             )
@@ -181,7 +184,7 @@ impl AskarSession {
             Some(
                 serde_json::from_str::<EntryTagSet<'static>>(&tags)
                     .map_err(|err| ErrorCode::Input {
-                        message: format!("Error decoding tags: {}", err),
+                        error_message: format!("Error decoding tags: {}", err),
                     })?
                     .into_vec(),
             )
@@ -272,7 +275,7 @@ impl AskarSession {
             Some(
                 serde_json::from_str::<EntryTagSet<'static>>(&tags)
                     .map_err(|err| ErrorCode::Input {
-                        message: format!("Error decoding tags: {}", err),
+                        error_message: format!("Error decoding tags: {}", err),
                     })?
                     .into_vec(),
             )

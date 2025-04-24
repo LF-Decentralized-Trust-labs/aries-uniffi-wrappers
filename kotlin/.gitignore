@@ -12,5 +12,3 @@ build
 *.db-shm
 *.db-wal
 target
-
-local.properties
