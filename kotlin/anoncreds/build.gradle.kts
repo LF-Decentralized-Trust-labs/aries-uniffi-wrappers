@@ -1,15 +1,13 @@
-import org.jetbrains.kotlin.gradle.dsl.JvmTarget
-import org.jetbrains.kotlin.gradle.plugin.KotlinSourceSetTree
-import java.util.*
-import gobley.gradle.cargo.dsl.jvm
 import gobley.gradle.GobleyHost
-import gobley.gradle.cargo.dsl.linux
 import gobley.gradle.Variant
 import gobley.gradle.cargo.dsl.android
 import gobley.gradle.cargo.dsl.appleMobile
+import gobley.gradle.cargo.dsl.jvm
+import gobley.gradle.cargo.dsl.linux
 import gobley.gradle.rust.targets.RustPosixTarget
-import gobley.gradle.rust.targets.RustTarget
-import gobley.gradle.rust.targets.RustWindowsTarget
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import org.jetbrains.kotlin.gradle.plugin.KotlinSourceSetTree
+import java.util.Properties
 
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
@@ -30,38 +28,38 @@ cargo {
     nativeVariant = Variant.Release
 
     // Use cross when building Linux on Mac
-    if(GobleyHost.Platform.MacOS.isCurrent){
+    if (GobleyHost.Platform.MacOS.isCurrent) {
         val home = System.getProperty("user.home")
         val crossFile = File("$home/.cargo/bin/cross")
-        builds{
-            linux{
-                this@linux.debug.buildTaskProvider.configure{
+        builds {
+            linux {
+                this@linux.debug.buildTaskProvider.configure {
                     this@configure.cargo = crossFile
                 }
-                this@linux.release.buildTaskProvider.configure{
+                this@linux.release.buildTaskProvider.configure {
                     this@configure.cargo = crossFile
                 }
             }
         }
     }
-builds{
-    appleMobile{
-        release.buildTaskProvider.configure{
-            additionalEnvironment.put("IPHONEOS_DEPLOYMENT_TARGET", "10")
+    builds {
+        appleMobile {
+            release.buildTaskProvider.configure {
+                additionalEnvironment.put("IPHONEOS_DEPLOYMENT_TARGET", "10")
+            }
         }
-    }
-}
-    builds.jvm{
-        embedRustLibrary = true
-        if(GobleyHost.Platform.MacOS.isCurrent && rustTarget == RustPosixTarget.MinGWX64){
-            release.dynamicLibraries.set(listOf("anoncreds_uniffi.dll"))
-            debug.dynamicLibraries.set(listOf("anoncreds_uniffi.dll"))
+        jvm {
+            embedRustLibrary = true
+            if (GobleyHost.Platform.MacOS.isCurrent && rustTarget == RustPosixTarget.MinGWX64) {
+                release.dynamicLibraries.set(listOf("anoncreds_uniffi.dll"))
+                debug.dynamicLibraries.set(listOf("anoncreds_uniffi.dll"))
+            }
         }
     }
 }
 
-uniffi{
-    generateFromLibrary{
+uniffi {
+    generateFromLibrary {
         packageName = "anoncreds_uniffi"
         cdylibName = "anoncreds_uniffi"
         this@generateFromLibrary.disableJavaCleaner = true
@@ -75,12 +73,12 @@ ext["anoncredsVersion"] = "0.2.0"
 ext["wrapperVersion"] = "GOBLEY"
 
 val secretPropsFile = project.rootProject.file("local.properties")
-if(secretPropsFile.exists()) {
+if (secretPropsFile.exists()) {
     secretPropsFile.reader().use {
         Properties().apply {
             load(it)
         }
-    }.onEach{ (name, value) ->
+    }.onEach { (name, value) ->
         ext[name.toString()] = value
     }
 } else {
@@ -93,9 +91,9 @@ fun getExtraString(name: String) = ext[name]?.toString()
 group = "org.hyperledger"
 version = "${getExtraString("anoncredsVersion")}-wrapper.${getExtraString("wrapperVersion")}"
 
-publishing{
-    repositories{
-        maven{
+publishing {
+    repositories {
+        maven {
             name = "github"
             setUrl("https://maven.pkg.github.com/hyperledger/aries-uniffi-wrappers")
             credentials {
@@ -111,7 +109,7 @@ publishing{
             description.set("Kotlin MPP wrapper around anoncreds uniffi")
             url.set("https://github.com/hyperledger/aries-uniffi-wrappers")
 
-            scm{
+            scm {
                 url.set("https://github.com/hyperledger/aries-uniffi-wrappers")
             }
         }
@@ -123,7 +121,7 @@ kotlin {
     jvmToolchain(17)
     applyDefaultHierarchyTemplate()
 
-    androidTarget{
+    androidTarget {
         publishLibraryVariants("release")
         compilerOptions {
             jvmTarget.set(JvmTarget.JVM_11)
@@ -132,13 +130,13 @@ kotlin {
         unitTestVariant.sourceSetTree.set(KotlinSourceSetTree.unitTest)
     }
 
-    jvm{
+    jvm {
         compilerOptions {
             jvmTarget.set(JvmTarget.JVM_17)
             freeCompilerArgs.add("-Xdebug")
         }
 
-        testRuns["test"].executionTask.configure{
+        testRuns["test"].executionTask.configure {
             useJUnitPlatform()
         }
     }
@@ -152,7 +150,7 @@ kotlin {
     iosSimulatorArm64()
 
     iosArm64()
-    
+
     sourceSets {
         val commonMain by getting {
             dependencies {
@@ -161,7 +159,7 @@ kotlin {
         }
 
         val commonTest by getting {
-            dependencies{
+            dependencies {
                 implementation(kotlin("test"))
                 implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2")
             }
@@ -194,12 +192,12 @@ kotlin {
 }
 
 
-android{
+android {
     namespace = "anoncreds_uniffi"
     compileSdk = 35
     ndkVersion = "26.1.10909125"
 
-    defaultConfig{
+    defaultConfig {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         minSdk = 24

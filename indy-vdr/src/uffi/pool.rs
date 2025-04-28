@@ -3,7 +3,7 @@ use super::requests::Request;
 use super::POOL_CONFIG;
 use indy_vdr::common::error::VdrResult;
 use indy_vdr::pool::{
-    PoolBuilder, PoolRunner, PoolTransactions, RequestMethod, RequestResult, TimingResult,
+    PoolBuilder, PoolRunner, PoolTransactions, RequestMethod, RequestResult, RequestResultMeta
 };
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -11,13 +11,28 @@ use tokio::sync::{oneshot, RwLock};
 
 pub struct Pool {
     pool: RwLock<Option<PoolRunner>>,
+    init_txns: PoolTransactions,
+    node_weights: Option<NodeWeights>
 }
+
+impl Pool{
+    fn new(pool: RwLock<Option<PoolRunner>>, init_txns: PoolTransactions, node_weights: Option<NodeWeights>) -> Pool{
+        Pool {
+            pool,
+            init_txns,
+            node_weights
+        }
+    }
+}
+
+
+pub type NodeWeights = HashMap<String, f32>;
 
 #[uniffi::export]
 fn open_pool(
     transactions_path: Option<String>,
     transactions: Option<String>,
-    node_weights: Option<HashMap<String, f32>>,
+    node_weights: Option<NodeWeights>,
 ) -> Result<Arc<Pool>, ErrorCode> {
     let txns = if let Some(txns) = transactions {
         PoolTransactions::from_json(txns.as_str())?
@@ -25,26 +40,20 @@ fn open_pool(
         PoolTransactions::from_json_file(path.as_str())?
     } else {
         return Err(ErrorCode::Input {
-            message:
+            error_message:
                 "Invalid pool create parameters: must provide transactions or transactions_path"
                     .to_string(),
         });
     };
 
-    let builder = {
-        let gcfg = read_lock!(POOL_CONFIG)?;
-        PoolBuilder::from(gcfg.clone())
-            .transactions(txns)?
-            .node_weights(node_weights)
-    };
-    let pool = builder.into_runner()?;
-    Ok(Arc::new(Pool {
-        pool: RwLock::new(Some(pool)),
-    }))
+    let gcfg = read_lock!(POOL_CONFIG)?;
+    let builder = PoolBuilder::new(gcfg.clone(), txns.clone()).node_weights(node_weights.clone());
+    let pool = builder.into_runner(None)?;
+    Ok(Arc::new(Pool::new(RwLock::new(Some(pool)), txns, node_weights)))
 }
 
 fn handle_request_result(
-    result: VdrResult<(RequestResult<String>, Option<TimingResult>)>,
+    result: VdrResult<(RequestResult<String>, RequestResultMeta)>,
 ) -> (ErrorCode, String) {
     match result {
         Ok((reply, _timing)) => match reply {
@@ -62,16 +71,20 @@ fn handle_request_result(
 }
 
 async fn handle_pool_refresh(
-    old_txns: Vec<String>,
-    new_txns: Vec<String>,
+    init_txns: PoolTransactions,
+    new_txns: Option<PoolTransactions>,
+    node_weights: Option<NodeWeights>
 ) -> Result<Option<PoolRunner>, ErrorCode> {
-    let mut txns = PoolTransactions::from_json_transactions(old_txns)?;
-    txns.extend_from_json(&new_txns)?;
-    let builder = {
-        let gcfg = read_lock!(POOL_CONFIG)?;
-        PoolBuilder::from(gcfg.clone())
+    let txns = match new_txns{
+        Some(new_txns) => {
+            let mut txn = init_txns.clone();
+            txn.extend(new_txns.iter().map(|x| x.clone()));
+            txn
+        }
+        None => init_txns,
     };
-    let runner = builder.transactions(txns)?.into_runner()?;
+    let gcfg = read_lock!(POOL_CONFIG)?;
+    let runner = PoolBuilder::new(gcfg.clone(), txns).node_weights(node_weights).refreshed(true).into_runner(None)?;
     Ok(Some(runner))
 }
 
@@ -83,15 +96,13 @@ impl Pool {
             .build()
             .unwrap();
         let (tx, rx) = oneshot::channel();
+        let init_txns = self.init_txns.clone();
+        let node_weights = self.node_weights.clone();
         read_pool!(self.pool)?.refresh(Box::new(move |result| {
             match result {
-                Ok((old_txns, new_txns, _timing)) => {
-                    if let Some(new_txns) = new_txns {
-                        let result = rt.block_on(handle_pool_refresh(old_txns, new_txns));
-                        let _ = tx.send(result);
-                    } else {
-                        let _ = tx.send(Ok(None));
-                    }
+                Ok((new_txns, _metadata)) => {
+                    let result = rt.block_on(handle_pool_refresh(init_txns, new_txns, node_weights));
+                    let _ = tx.send(result);
                 }
                 Err(err) => {
                     let code = ErrorCode::from(err);
@@ -100,7 +111,7 @@ impl Pool {
             };
         }))?;
         let result = rx.await.map_err(|err| ErrorCode::Unexpected {
-            message: format!("Channel error: {}", err),
+            error_message: format!("Channel error: {}", err),
         })?;
         match result {
             Ok(runner) => {
@@ -129,7 +140,7 @@ impl Pool {
             let _ = tx.send((errcode, reply));
         }))?;
         let (errcode, reply) = rx.await.map_err(|err| ErrorCode::Unexpected {
-            message: format!("Channel error: {}", err),
+            error_message: format!("Channel error: {}", err),
         })?;
         if errcode != (ErrorCode::Success {}) {
             return Err(errcode);
@@ -150,7 +161,7 @@ impl Pool {
             let _ = tx.send((errcode, reply));
         }))?;
         let (errcode, reply) = rx.await.map_err(|err| ErrorCode::Unexpected {
-            message: format!("Channel error: {}", err),
+            error_message: format!("Channel error: {}", err),
         })?;
         if errcode != (ErrorCode::Success {}) {
             return Err(errcode);
@@ -178,7 +189,7 @@ impl Pool {
             }),
         )?;
         let (errcode, reply) = rx.await.map_err(|err| ErrorCode::Unexpected {
-            message: format!("Channel error: {}", err),
+            error_message: format!("Channel error: {}", err),
         })?;
         if errcode != (ErrorCode::Success {}) {
             return Err(errcode);
@@ -197,7 +208,7 @@ impl Pool {
             }),
         )?;
         let (errcode, reply) = rx.await.map_err(|err| ErrorCode::Unexpected {
-            message: format!("Channel error: {}", err),
+            error_message: format!("Channel error: {}", err),
         })?;
         if errcode != (ErrorCode::Success {}) {
             return Err(errcode);
@@ -205,6 +216,8 @@ impl Pool {
         Ok(reply)
     }
 
+    // `close()` is used in Kotlin to destroy Uniffi object so we rename it here
+    #[uniffi::method(name = "close_pool")]
     pub async fn close(&self) -> Result<(), ErrorCode> {
         _ = self.pool.write().await.take();
         Ok(())

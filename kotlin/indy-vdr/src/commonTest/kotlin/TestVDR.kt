@@ -100,7 +100,7 @@ class TestVDR {
             println("Get revoc reg delta request: ${req.use{it.body()}}")
 
             println("Closing pool...")
-            pool.close()
+            pool.closePool()
             println("\tPool closed.")
         }
     }

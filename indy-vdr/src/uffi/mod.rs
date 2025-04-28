@@ -21,7 +21,7 @@ static POOL_CONFIG: Lazy<RwLock<PoolConfig>> = Lazy::new(|| RwLock::new(PoolConf
 #[uniffi::export]
 pub fn set_default_logger() -> Result<(), ErrorCode> {
     env_logger::try_init().map_err(|e| ErrorCode::Unexpected {
-        message: format!("{}", e),
+        error_message: format!("{}", e),
     })?;
     Ok(())
 }
