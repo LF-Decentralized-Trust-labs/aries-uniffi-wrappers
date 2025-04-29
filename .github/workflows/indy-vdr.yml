@@ -7,7 +7,6 @@ jobs:
   build-linux:
     name: Build Linux Artifacts
     runs-on: ubuntu-22.04
-
     defaults:
       run:
         working-directory: kotlin
@@ -57,6 +56,9 @@ jobs:
   build-windows:
     name: Build Windows Artifact
     runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: kotlin
     steps:
       - uses: actions/checkout@v4
 
@@ -104,6 +106,9 @@ jobs:
   publish-macos:
     name: Publish to Maven Local on macOS
     runs-on: macos-latest
+    defaults:
+      run:
+        working-directory: kotlin
     needs: [build-linux, build-windows]
     steps:
       - uses: actions/checkout@v4
