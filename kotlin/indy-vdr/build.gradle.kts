@@ -51,7 +51,7 @@ cargo {
             embedRustLibrary = true
             if (GobleyHost.Platform.Windows.isCurrent) {
                 // Don't build Windows X64, use MinGW instead
-                embedRustLibrary = rustTarget != RustWindowsTarget.X64
+//                embedRustLibrary = rustTarget != RustWindowsTarget.X64
             }else if (GobleyHost.Platform.MacOS.isCurrent){
                 // Don't build for MinGWX64 on MacOS
                 val exclude = listOf(
