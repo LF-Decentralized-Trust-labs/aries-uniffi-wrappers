@@ -33,11 +33,10 @@ cargo {
         val crossFile = File("$home/.cargo/bin/cross")
         builds {
             linux {
-                this@linux.debug.buildTaskProvider.configure {
-                    this@configure.cargo = crossFile
-                }
-                this@linux.release.buildTaskProvider.configure {
-                    this@configure.cargo = crossFile
+                variants{
+                    buildTaskProvider.configure {
+                        cargo = crossFile
+                    }
                 }
             }
         }
@@ -51,8 +50,9 @@ cargo {
         jvm {
             embedRustLibrary = true
             if (GobleyHost.Platform.MacOS.isCurrent && rustTarget == RustPosixTarget.MinGWX64) {
-                release.dynamicLibraries.set(listOf("anoncreds_uniffi.dll"))
-                debug.dynamicLibraries.set(listOf("anoncreds_uniffi.dll"))
+                variants{
+                    dynamicLibraries.set(listOf("anoncreds_uniffi.dll"))
+                }
             }
         }
     }
@@ -69,8 +69,6 @@ uniffi {
 // Stub secrets to let the project sync and build without the publication values set up
 ext["githubUsername"] = null
 ext["githubToken"] = null
-ext["anoncredsVersion"] = "0.2.0"
-ext["wrapperVersion"] = "GOBLEY"
 
 val secretPropsFile = project.rootProject.file("local.properties")
 if (secretPropsFile.exists()) {
@@ -88,14 +86,11 @@ if (secretPropsFile.exists()) {
 
 fun getExtraString(name: String) = ext[name]?.toString()
 
-group = "org.hyperledger"
-version = "${getExtraString("anoncredsVersion")}-wrapper.${getExtraString("wrapperVersion")}"
-
 publishing {
     repositories {
         maven {
             name = "github"
-            setUrl("https://maven.pkg.github.com/hyperledger/aries-uniffi-wrappers")
+            setUrl("https://maven.pkg.github.com/indicio-tech/aries-uniffi-wrappers")
             credentials {
                 username = getExtraString("githubUsername")
                 password = getExtraString("githubToken")
@@ -154,7 +149,7 @@ kotlin {
     sourceSets {
         val commonMain by getting {
             dependencies {
-                implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.8.1")
+                implementation(libs.kotlinx.serialization.json)
             }
         }
 
@@ -166,22 +161,15 @@ kotlin {
         }
 
         val androidMain by getting {
-//            kotlin.srcDir(uniffiBindings.resolve("jvmMain").resolve("kotlin"))
-//            dependencies{
-//                implementation("net.java.dev.jna:jna:5.7.0@aar")
-//                implementation("org.jetbrains.kotlinx:atomicfu:0.22.0")
-//            }
+
         }
 
         val jvmMain by getting {
-//            kotlin.srcDir(uniffiBindings.resolve("jvmMain").resolve("kotlin"))
-//            dependencies{
-//                implementation("net.java.dev.jna:jna:5.17.0")
-//            }
+
         }
 
         val nativeMain by getting {
-//            kotlin.srcDir(uniffiBindings.resolve("nativeMain").resolve("kotlin"))
+
         }
 
         all {

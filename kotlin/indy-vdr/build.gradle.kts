@@ -7,8 +7,8 @@ import gobley.gradle.cargo.dsl.linux
 import gobley.gradle.Variant
 import gobley.gradle.cargo.dsl.android
 import gobley.gradle.cargo.dsl.appleMobile
-import gobley.gradle.cargo.dsl.mingw
 import gobley.gradle.rust.targets.RustPosixTarget
+import gobley.gradle.rust.targets.RustWindowsTarget
 
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
@@ -28,64 +28,45 @@ cargo {
     jvmVariant = Variant.Release
     nativeVariant = Variant.Release
 
-    // Use cross when building Linux on Mac
-    if(GobleyHost.Platform.MacOS.isCurrent){
-        val home = System.getProperty("user.home")
-        val crossFile = File("$home/.cargo/bin/cross")
-        builds{
-            linux{
-                this@linux.debug.buildTaskProvider.configure{
-                    this@configure.cargo = crossFile
-                }
-                this@linux.release.buildTaskProvider.configure{
-                    this@configure.cargo = crossFile
-                }
-            }
-        }
-
-        builds{
-            mingw{
-                variants{
-                    buildTaskProvider.configure {
-                        println(packageDirectory.get().dir("rust/libsodium-win64/lib"))
-                        additionalEnvironment.put("DEP_SODIUM_LIB", packageDirectory.get().dir("rust/libsodium-win64/lib").asFile.absolutePath)
-                        additionalEnvironment.put("DEP_SODIUM_INCLUDE", packageDirectory.get().dir("rust/libsodium-win64/include").asFile.absolutePath)
-
-                        cargo = crossFile
-                    }
-                }
-            }
-        }
-    }
+    val home = System.getProperty("user.home")
+    val crossFile = File("$home/.cargo/bin/cross")
 
     builds{
+        linux{
+            variants{
+                buildTaskProvider.configure {
+                    cargo = crossFile
+                }
+            }
+        }
         appleMobile{
             release.buildTaskProvider.configure{
                 additionalEnvironment.put("IPHONEOS_DEPLOYMENT_TARGET", "10.0")
             }
         }
         android {
-//            variants {
-//                buildTaskProvider.configure {
-//                    additionalEnvironment.put("CFLAGS_${rustTarget.rustTriple}", "")
-//                    additionalEnvironment.put("CXXFLAGS_${rustTarget.rustTriple}", "")
-//                }
-//            }
-//            val home = System.getProperty("user.home")
-//            val crossFile = File("$home/.cargo/bin/cross")
             dynamicLibraries.addAll("c++_shared")
-//            this.debug.buildTaskProvider.configure{
-//                this@configure.cargo = crossFile
-//            }
-//            this.release.buildTaskProvider.configure{
-//                this@configure.cargo = crossFile
-//            }
         }
         jvm{
             embedRustLibrary = true
-            if(GobleyHost.Platform.MacOS.isCurrent && rustTarget == RustPosixTarget.MinGWX64){
-                release.dynamicLibraries.set(listOf("indy_vdr_uniffi.dll"))
-                debug.dynamicLibraries.set(listOf("indy_vdr_uniffi.dll"))
+            if (GobleyHost.Platform.Windows.isCurrent) {
+                // Don't build Windows X64, use MinGW instead
+                embedRustLibrary = rustTarget != RustWindowsTarget.X64
+            }else if (GobleyHost.Platform.MacOS.isCurrent){
+                // Don't build for MinGWX64 on MacOS
+                val exclude = listOf(
+                    RustPosixTarget.MinGWX64,
+                    RustPosixTarget.LinuxArm64,
+                    RustPosixTarget.LinuxX64
+                )
+                embedRustLibrary = !exclude.contains(rustTarget)
+            }
+            if(rustTarget == RustPosixTarget.MinGWX64){
+                variants {
+                    buildTaskProvider.configure {
+                        dynamicLibraries.set(listOf("indy_vdr_uniffi.dll"))
+                    }
+                }
             }
         }
     }
@@ -104,8 +85,6 @@ uniffi{
 // Stub secrets to let the project sync and build without the publication values set up
 ext["githubUsername"] = null
 ext["githubToken"] = null
-ext["indyVdrVersion"] = "0.2.0"
-ext["wrapperVersion"] = "GOBLEY"
 
 val secretPropsFile = project.rootProject.file("local.properties")
 if(secretPropsFile.exists()) {
@@ -123,14 +102,11 @@ if(secretPropsFile.exists()) {
 
 fun getExtraString(name: String) = ext[name]?.toString()
 
-group = "org.hyperledger"
-version = "${getExtraString("indyVdrVersion")}-wrapper.${getExtraString("wrapperVersion")}"
-
 publishing{
     repositories{
         maven{
             name = "github"
-            setUrl("https://maven.pkg.github.com/hyperledger/aries-uniffi-wrappers")
+            setUrl("https://maven.pkg.github.com/indicio-tech/aries-uniffi-wrappers")
             credentials {
                 username = getExtraString("githubUsername")
                 password = getExtraString("githubToken")
@@ -149,11 +125,6 @@ publishing{
             }
         }
     }
-}
-
-private enum class PlatformType {
-    APPLE,
-    ANDROID
 }
 
 kotlin {
@@ -194,29 +165,23 @@ kotlin {
     sourceSets {
         val commonMain by getting {
             dependencies {
-//                implementation("com.squareup.okio:okio:3.2.0")
-                implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.8.1")
+                implementation(libs.kotlinx.serialization.json)
             }
         }
 
         val commonTest by getting {
             dependencies{
                 implementation(kotlin("test"))
-                implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2")
+                implementation(libs.kotlinx.coroutines.core)
             }
         }
 
         val androidMain by getting {
-            dependencies{
-//                implementation("net.java.dev.jna:jna:5.7.0@aar")
-//                implementation("org.jetbrains.kotlinx:atomicfu:0.22.0")
-            }
+
         }
 
         val jvmMain by getting {
-            dependencies{
-//                implementation("net.java.dev.jna:jna:5.13.0")
-            }
+
         }
 
         val nativeMain by getting {
@@ -236,7 +201,6 @@ android{
     namespace = "indy_vdr_uniffi"
     compileSdk = 35
     ndkVersion = "26.1.10909125"
-//    ndkVersion = "28.1.13356709"
 
     defaultConfig{
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
