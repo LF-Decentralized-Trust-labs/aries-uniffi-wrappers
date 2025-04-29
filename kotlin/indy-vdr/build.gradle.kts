@@ -79,8 +79,8 @@ uniffi{
         cdylibName = "indy_vdr_uniffi"
         if(GobleyHost.Platform.Windows.isCurrent){
             build = RustWindowsTarget.X64
+            variant = Variant.Release
         }
-        variant = Variant.Release
         this@generateFromLibrary.disableJavaCleaner = true
     }
 }

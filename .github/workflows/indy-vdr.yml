@@ -95,7 +95,7 @@ jobs:
 
       - name: Build Windows JAR
         run: |
-          gradle :indy_vdr_uniffi:jarJvmRustRuntimeWindowsX64
+          gradle :indy_vdr_uniffi:jarJvmRustRuntimeWindowsX64Release
 
       - name: Upload Windows libs
         uses: actions/upload-artifact@v4
