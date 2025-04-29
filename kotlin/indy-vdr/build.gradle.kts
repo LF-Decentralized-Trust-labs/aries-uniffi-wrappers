@@ -77,6 +77,10 @@ uniffi{
     generateFromLibrary{
         packageName = "indy_vdr_uniffi"
         cdylibName = "indy_vdr_uniffi"
+        if(GobleyHost.Platform.Windows.isCurrent){
+            build = RustPosixTarget.MinGWX64
+        }
+        variant = Variant.Release
         this@generateFromLibrary.disableJavaCleaner = true
     }
 }
