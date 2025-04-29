@@ -84,6 +84,7 @@ jobs:
         with:
           shared-key: deps
           save-if: false
+          workspaces: "indy-vdr"
           
       - name: Set up  Gradle
         uses: gradle/actions/setup-gradle@v4
@@ -92,7 +93,7 @@ jobs:
 
       - name: Build Windows JAR
         run: |
-          ./gradlew :indy_vdr_uniffi:jarJvmRustRuntimeMinGWX64Release
+          gradle :indy_vdr_uniffi:jarJvmRustRuntimeMinGWX64Release
 
       - name: Upload Windows libs
         uses: actions/upload-artifact@v4
@@ -142,4 +143,4 @@ jobs:
 
       - name: Publish to Maven Local
         run: |
-          gradle :indy_vdr_uniffi:publishToMavenLocal
+          gradle :indy_vdr_uniffi:publishAllPublicationsToGithubRepository
