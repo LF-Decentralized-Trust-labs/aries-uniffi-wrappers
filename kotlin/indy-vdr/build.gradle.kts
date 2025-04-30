@@ -28,10 +28,11 @@ cargo {
     nativeVariant = Variant.Release
 
     val home = System.getProperty("user.home")
-    val crossFile = File("$home/.cargo/bin/cross")
+
 
     builds{
         linux{
+            val crossFile = File("$home/.cargo/bin/cross")
             variants{
                 buildTaskProvider.configure {
                     cargo = crossFile
@@ -45,6 +46,7 @@ cargo {
         }
         android {
             if(GobleyHost.Platform.Windows.isCurrent){
+                val crossFile = File("$home/.cargo/bin/cross.exe")
                 variants{
                     buildTaskProvider.configure {
                         cargo = crossFile
