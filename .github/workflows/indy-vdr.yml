@@ -66,7 +66,7 @@ jobs:
         uses: dtolnay/rust-toolchain@master
         with:
           toolchain: 1.86.0
-          targets: x86_64-pc-windows-gnu
+          targets: x86_64-pc-windows-msvc
 
       - name: Cache cargo resources
         uses: Swatinem/rust-cache@v2
@@ -95,7 +95,7 @@ jobs:
 
       - name: Build Windows JAR
         run: |
-          gradle :indy_vdr_uniffi:jarJvmRustRuntimeMinGWX64Release
+          gradle :indy_vdr_uniffi:jarJvmRustRuntimeWindowsX64Release
 
       - name: Upload Windows libs
         uses: actions/upload-artifact@v4

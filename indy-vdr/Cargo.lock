@@ -343,9 +343,9 @@ dependencies = [
 
 [[package]]
 name = "cfg-expr"
-version = "0.15.8"
+version = "0.17.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d067ad48b8650848b989a59a86c6c36a995d02d2bf778d45c3c5d57bc2718f02"
+checksum = "8d4ba6e40bd1184518716a6e1a781bf9160e286d219ccdb8ab2612e74cfe4789"
 dependencies = [
  "smallvec",
  "target-lexicon",
@@ -1128,7 +1128,7 @@ dependencies = [
 [[package]]
 name = "indy-vdr"
 version = "0.4.4"
-source = "git+https://github.com/indicio-tech/indy-vdr?branch=fix%2Fzmq10#03043e12706761d43807fbf7aba3299b2f03fac7"
+source = "git+https://github.com/indicio-tech/indy-vdr?rev=cd5146f#cd5146f2eca6f48926a24f36c9ea5b359cd950c3"
 dependencies = [
  "base64",
  "bs58",
@@ -1968,9 +1968,9 @@ dependencies = [
 
 [[package]]
 name = "system-deps"
-version = "6.2.2"
+version = "7.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a3e535eb8dded36d55ec13eddacd30dec501792ff23a0b1682c38601b8cf2349"
+checksum = "66d23aaf9f331227789a99e8de4c91bf46703add012bdfd45fdecdfb2975a005"
 dependencies = [
  "cfg-expr",
  "heck",
@@ -2647,8 +2647,7 @@ dependencies = [
 [[package]]
 name = "zeromq-src"
 version = "0.3.5+4.3.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "37777bd4cd35e21947b42441bc70f4edbfba70b51edb026eb95fee339da0a03c"
+source = "git+https://github.com/TheTreek/zeromq-src-rs?rev=c00e535#c00e535f049160304a770ec1d31d6acf00e21cc8"
 dependencies = [
  "cc",
  "dircpy",
@@ -2694,7 +2693,7 @@ dependencies = [
 [[package]]
 name = "zmq"
 version = "0.10.0-indicio.0"
-source = "git+https://github.com/Indicio-tech/rust-zmq?branch=fix%2FlibSodium#c0cb4a6f14e922a797121a2e19c16cf4ae1fff22"
+source = "git+https://github.com/Indicio-tech/rust-zmq?rev=54fd199#54fd199f1211018d4e6e61f98150e0f71601517d"
 dependencies = [
  "bitflags 1.3.2",
  "libc",
@@ -2704,11 +2703,12 @@ dependencies = [
 [[package]]
 name = "zmq-sys"
 version = "0.12.0-indicio.0"
-source = "git+https://github.com/Indicio-tech/rust-zmq?branch=fix%2FlibSodium#c0cb4a6f14e922a797121a2e19c16cf4ae1fff22"
+source = "git+https://github.com/Indicio-tech/rust-zmq?rev=54fd199#54fd199f1211018d4e6e61f98150e0f71601517d"
 dependencies = [
  "libc",
  "libsodium-sys-stable",
  "system-deps",
+ "vcpkg",
  "zeromq-src",
 ]
 
