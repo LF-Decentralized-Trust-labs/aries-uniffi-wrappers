@@ -8,7 +8,6 @@ import gobley.gradle.Variant
 import gobley.gradle.cargo.dsl.android
 import gobley.gradle.cargo.dsl.appleMobile
 import gobley.gradle.rust.targets.RustPosixTarget
-import gobley.gradle.rust.targets.RustWindowsTarget
 
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
@@ -45,6 +44,13 @@ cargo {
             }
         }
         android {
+            if(GobleyHost.Platform.Windows.isCurrent){
+                variants{
+                    buildTaskProvider.configure {
+                        cargo = crossFile
+                    }
+                }
+            }
             dynamicLibraries.addAll("c++_shared")
         }
         jvm{
@@ -72,18 +78,13 @@ cargo {
     }
 }
 
-
 uniffi{
     generateFromLibrary{
         packageName = "indy_vdr_uniffi"
         cdylibName = "indy_vdr_uniffi"
-        if (GobleyHost.Platform.Windows.isCurrent) {
-            build = RustWindowsTarget.X64
-        }
         this@generateFromLibrary.disableJavaCleaner = true
     }
 }
-
 
 // Stub secrets to let the project sync and build without the publication values set up
 ext["githubUsername"] = null
@@ -133,7 +134,6 @@ publishing{
 kotlin {
     jvmToolchain(17)
     applyDefaultHierarchyTemplate()
-
 
     androidTarget{
         publishLibraryVariants("release")
@@ -197,7 +197,6 @@ kotlin {
         }
     }
 }
-
 
 android{
     sourceSets["androidTest"].manifest.srcFile("src/androidTest/AndroidManifest.xml")
