@@ -74,6 +74,7 @@ cargo {
 
 
 uniffi{
+    // See https://github.com/gobley/gobley/discussions/105
     bindgenFromGitBranch(
         repository = "https://github.com/paxbun/gobley",
         branch = "tmp/uniffi-0.28.3-coff",
