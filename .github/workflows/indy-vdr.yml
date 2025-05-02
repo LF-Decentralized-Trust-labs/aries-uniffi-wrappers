@@ -18,7 +18,7 @@ jobs:
         uses: dtolnay/rust-toolchain@master
         with:
           toolchain: 1.86.0
-          targets: aarch64-linux-android,x86_64-unknown-linux-gnu,aarch64-unknown-linux-gnu
+          targets: aarch64-linux-android,armv7-linux-androideabi,i686-linux-android,x86_64-linux-android,x86_64-unknown-linux-gnu,aarch64-unknown-linux-gnu
 
       - name: Cache cargo resources
         uses: Swatinem/rust-cache@v2
@@ -53,6 +53,12 @@ jobs:
           name: linux-libs
           path: kotlin/indy-vdr/build/libs
 
+      - name: Publish Android
+        run: |
+          gradle :indy_vdr_uniffi:publishAndroidReleasePublicationToGithubRepository
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
   build-windows:
     name: Build Windows Artifact
     runs-on: windows-latest
@@ -65,7 +71,7 @@ jobs:
         uses: dtolnay/rust-toolchain@master
         with:
           toolchain: 1.86.0
-          targets: aarch64-linux-android,x86_64-pc-windows-msvc
+          targets: x86_64-pc-windows-msvc
 
       - name: Cache cargo resources
         uses: Swatinem/rust-cache@v2
@@ -109,6 +115,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.86.0
+          targets: aarch64-linux-android,aarch64-apple-ios,aarch64-apple-ios-sim,x86_64-apple-ios,aarch64-apple-darwin,x86_64-apple-darwin
+
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
@@ -142,6 +154,14 @@ jobs:
       - name: Set up Java and Gradle
         uses: gradle/actions/setup-gradle@v3
 
-      - name: Publish to Maven Local
+      - name: Publish to Github
         run: |
-          gradle :indy_vdr_uniffi:publishAllPublicationsToGithubRepository
+          gradle :indy_vdr_uniffi:publishKotlinMultiplatformPublicationToGithubRepository
+          gradle :indy_vdr_uniffi:publishJvmPublicationToGithubRepository
+          gradle :indy_vdr_uniffi:publishMacosArm64PublicationToGithubRepository
+          gradle :indy_vdr_uniffi:publishMacosX64PublicationToGithubRepository
+          gradle :indy_vdr_uniffi:publishIosArm64PublicationToGithubRepository
+          gradle :indy_vdr_uniffi:publishIosSimulatorArm64PublicationToGithubRepository
+          gradle :indy_vdr_uniffi:publishIosX64PublicationToGithubRepository
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -8,6 +8,7 @@ import gobley.gradle.Variant
 import gobley.gradle.cargo.dsl.android
 import gobley.gradle.cargo.dsl.appleMobile
 import gobley.gradle.rust.targets.RustPosixTarget
+import gobley.gradle.rust.targets.RustWindowsTarget
 
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
@@ -89,6 +90,10 @@ uniffi{
     generateFromLibrary{
         packageName = "indy_vdr_uniffi"
         cdylibName = "indy_vdr_uniffi"
+        if (GobleyHost.Platform.Windows.isCurrent) {
+            build = RustWindowsTarget.X64
+            variant = Variant.Release
+        }
         this@generateFromLibrary.disableJavaCleaner = true
     }
 }
