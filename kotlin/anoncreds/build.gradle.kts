@@ -1,6 +1,5 @@
 import gobley.gradle.GobleyHost
 import gobley.gradle.Variant
-import gobley.gradle.cargo.dsl.android
 import gobley.gradle.cargo.dsl.appleMobile
 import gobley.gradle.cargo.dsl.jvm
 import gobley.gradle.cargo.dsl.linux
@@ -27,16 +26,14 @@ cargo {
     jvmVariant = Variant.Release
     nativeVariant = Variant.Release
 
-    // Use cross when building Linux on Mac
-    if (GobleyHost.Platform.MacOS.isCurrent) {
-        val home = System.getProperty("user.home")
-        val crossFile = File("$home/.cargo/bin/cross")
-        builds {
-            linux {
-                variants{
-                    buildTaskProvider.configure {
-                        cargo = crossFile
-                    }
+    // Use cross when building Linux
+    val home = System.getProperty("user.home")
+    val crossFile = File("$home/.cargo/bin/cross")
+    builds{
+        linux{
+            variants{
+                buildTaskProvider.configure {
+                    cargo = crossFile
                 }
             }
         }
@@ -49,7 +46,16 @@ cargo {
         }
         jvm {
             embedRustLibrary = true
-            if (GobleyHost.Platform.MacOS.isCurrent && rustTarget == RustPosixTarget.MinGWX64) {
+            if(GobleyHost.Platform.MacOS.isCurrent){
+                // Don't build for linux or windows on MacOS (mainly for github actions purposes)
+                val exclude = listOf(
+                    RustPosixTarget.MinGWX64,
+                    RustPosixTarget.LinuxArm64,
+                    RustPosixTarget.LinuxX64
+                )
+                embedRustLibrary = !exclude.contains(rustTarget)
+            }
+            if (rustTarget == RustPosixTarget.MinGWX64) {
                 variants{
                     dynamicLibraries.set(listOf("anoncreds_uniffi.dll"))
                 }
@@ -99,6 +105,16 @@ publishing {
     }
 
     publications.withType<MavenPublication> {
+        if(this@withType.name == "jvm"){
+            listOf("win32-x86-64","linux-x86-64","linux-aarch64").forEach{ target ->
+                val file = file("build/libs/${project.name}-$version-$target.jar")
+                if(file.exists()){
+                    artifact(file){
+                        classifier = target
+                    }
+                }
+            }
+        }
         pom {
             name.set("Anoncreds Uniffi Kotlin")
             description.set("Kotlin MPP wrapper around anoncreds uniffi")

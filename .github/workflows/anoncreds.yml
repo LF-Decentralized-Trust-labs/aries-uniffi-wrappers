@@ -1,0 +1,116 @@
+name: '[Anoncreds]: Kotlin Release'
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-linux:
+    name: Build Linux Artifacts
+    runs-on: ubuntu-22.04
+    defaults:
+      run:
+        working-directory: kotlin
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.86.0
+          targets: aarch64-linux-android,armv7-linux-androideabi,i686-linux-android,x86_64-linux-android,x86_64-unknown-linux-gnu,aarch64-unknown-linux-gnu
+
+      - name: Cache cargo resources
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: deps
+          save-if: false
+          workspaces: "anoncreds"
+
+      - name: Install Cross
+        run: | 
+          cargo install cross --git https://github.com/cross-rs/cross
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: 17
+
+      - name: Set up  Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: 8.13
+
+      - name: Build Linux JARs
+        run: |
+          gradle :anoncreds_uniffi:jarJvmRustRuntimeLinuxArm64Release
+          gradle :anoncreds_uniffi:jarJvmRustRuntimeLinuxX64Release
+          gradle :anoncreds_uniffi:jarJvmRustRuntimeMinGWX64Release
+
+      - name: Upload Linux/Windows libs
+        uses: actions/upload-artifact@v4
+        with:
+          name: anoncreds-jvm-libs
+          path: kotlin/anoncreds/build/libs
+
+      - name: Publish Android
+        run: |
+          gradle :anoncreds_uniffi:publishAndroidReleasePublicationToGithubRepository
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  publish-macos:
+    name: Publish to Maven Local on macOS
+    runs-on: macos-latest
+    defaults:
+      run:
+        working-directory: kotlin
+    needs: [build-linux]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.86.0
+          targets: aarch64-linux-android,aarch64-apple-ios,aarch64-apple-ios-sim,x86_64-apple-ios,aarch64-apple-darwin,x86_64-apple-darwin
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: 17
+
+      - name: Cache cargo resources
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: deps
+          save-if: false
+          workspaces: "anoncreds"
+          
+      - name: Set up  Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: 8.13
+
+      - name: Download JVM libs
+        uses: actions/download-artifact@v4
+        with:
+          name: anoncreds-jvm-libs
+          path: kotlin/anoncreds/build/libs
+
+      - name: Set up Java and Gradle
+        uses: gradle/actions/setup-gradle@v3
+
+      - name: Publish to Github
+        run: |
+          gradle :anoncreds_uniffi:publishKotlinMultiplatformPublicationToGithubRepository
+          gradle :anoncreds_uniffi:publishJvmPublicationToGithubRepository
+          gradle :anoncreds_uniffi:publishMacosArm64PublicationToGithubRepository
+          gradle :anoncreds_uniffi:publishMacosX64PublicationToGithubRepository
+          gradle :anoncreds_uniffi:publishIosArm64PublicationToGithubRepository
+          gradle :anoncreds_uniffi:publishIosSimulatorArm64PublicationToGithubRepository
+          gradle :anoncreds_uniffi:publishIosX64PublicationToGithubRepository
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

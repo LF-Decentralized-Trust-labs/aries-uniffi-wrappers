@@ -4,5 +4,7 @@ plugins {
     alias(libs.plugins.kotlinJvm) apply false
 }
 
-group = "org.hyperledger"
-version = "0.2.0-wrapper.GOBLEY"
+allprojects{
+    group = "org.hyperledger"
+    version = "0.2.0-wrapper.GOBLEY"
+}

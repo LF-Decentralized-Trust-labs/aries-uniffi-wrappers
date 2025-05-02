@@ -58,10 +58,7 @@ cargo {
         }
         jvm{
             embedRustLibrary = true
-            if (GobleyHost.Platform.Windows.isCurrent) {
-                // Don't build Windows X64, use MinGW instead
-//                embedRustLibrary = rustTarget != RustWindowsTarget.X64
-            }else if (GobleyHost.Platform.MacOS.isCurrent){
+            if (GobleyHost.Platform.MacOS.isCurrent){
                 // Don't build for MinGWX64 on MacOS
                 val exclude = listOf(
                     RustPosixTarget.MinGWX64,
@@ -131,6 +128,18 @@ publishing{
     }
 
     publications.withType<MavenPublication> {
+        // Add artifacts from windows/linux builds to JVM target
+        if(this@withType.name == "jvm"){
+            listOf("win32-x86-64","linux-x86-64","linux-aarch64").forEach{ target ->
+                val file = file("build/libs/${project.name}-$version-$target.jar")
+                if(file.exists()){
+                    artifact(file){
+                        classifier = target
+                    }
+                }
+            }
+        }
+
         pom {
             name.set("Indy VDR Uniffi Kotlin")
             description.set("Kotlin MPP wrapper around indy vdr uniffi")
