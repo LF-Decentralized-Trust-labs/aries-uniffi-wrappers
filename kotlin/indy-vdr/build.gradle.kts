@@ -69,7 +69,7 @@ cargo {
                 )
                 embedRustLibrary = !exclude.contains(rustTarget)
             }
-            if(rustTarget == RustPosixTarget.MinGWX64){
+            if(GobleyHost.Platform.Windows.isCurrent){
                 variants {
                     buildTaskProvider.configure {
                         dynamicLibraries.set(listOf("indy_vdr_uniffi.dll"))
@@ -81,6 +81,11 @@ cargo {
 }
 
 uniffi{
+    // See https://github.com/gobley/gobley/discussions/105
+    bindgenFromGitBranch(
+        repository = "https://github.com/paxbun/gobley",
+        branch = "tmp/uniffi-0.28.3-coff",
+    )
     generateFromLibrary{
         packageName = "indy_vdr_uniffi"
         cdylibName = "indy_vdr_uniffi"
