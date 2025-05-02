@@ -24,7 +24,7 @@ Zip the xcframework to a zip file using `zip -rq anoncreds/out/anoncreds_uniffiF
 
 ### Build
 
-Create Kotlin bindings by running `build-kotlin-libraries.sh`. This will create libraries and Kotlin bindings in `out/kmpp-uniffi` directory.
+Kotlin bindings are made automatically thanks to [Gobley](https://gobley.dev/).
 
 ### Test
 
@@ -47,12 +47,4 @@ To use Maven Local in a seperate project you'll want to make sure to add it insi
 
 #### Publish Kotlin libraries to github
 
-Publishing to github will require you to do a couple more steps. First we will want to get a github token with `write:packages` permissions, more details can be [found here](https://docs.github.com/en/packages/learn-github-packages/about-permissions-for-github-packages#about-scopes-and-permissions-for-package-registries).
-
-Once you have a token you will want to add both your token and your github username into `kotlin/${library}/local.properties` like so:
-```
-githubUsername=ExampleUsername
-githubToken=ghp_ajsldk1FakeTokenjkash
-```
-
-Now you can publish to github packages using `./gradlew publishAllPublicationsToGithubRepository`.
+Use the existing github action workflows to publish to github.
