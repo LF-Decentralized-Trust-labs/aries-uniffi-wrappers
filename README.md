@@ -7,7 +7,7 @@ This repository contains the wrappers for the following libraries:
 
 The wrappers are generated using [UniFFI](https://github.com/mozilla/uniffi-rs).
 UniFFI can generate several language bindings including Swift, Kotlin, and Python.
-Kotlin wrappers are generated with [uniffi-kotlin-multiplatform-bindings](https://gitlab.com/trixnity/uniffi-kotlin-multiplatform-bindings).
+Kotlin wrappers are generated with [Gobley](https://gobley.dev/).
 
 ## Usage
 
