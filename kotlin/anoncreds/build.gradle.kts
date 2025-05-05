@@ -29,9 +29,9 @@ cargo {
     // Use cross when building Linux
     val home = System.getProperty("user.home")
     val crossFile = File("$home/.cargo/bin/cross")
-    builds{
-        linux{
-            variants{
+    builds {
+        linux {
+            variants {
                 buildTaskProvider.configure {
                     cargo = crossFile
                 }
@@ -46,7 +46,7 @@ cargo {
         }
         jvm {
             embedRustLibrary = true
-            if(GobleyHost.Platform.MacOS.isCurrent){
+            if (GobleyHost.Platform.MacOS.isCurrent) {
                 // Don't build for linux or windows on MacOS (mainly for github actions purposes)
                 val exclude = listOf(
                     RustPosixTarget.MinGWX64,
@@ -56,7 +56,7 @@ cargo {
                 embedRustLibrary = !exclude.contains(rustTarget)
             }
             if (rustTarget == RustPosixTarget.MinGWX64) {
-                variants{
+                variants {
                     dynamicLibraries.set(listOf("anoncreds_uniffi.dll"))
                 }
             }
@@ -105,11 +105,17 @@ publishing {
     }
 
     publications.withType<MavenPublication> {
-        if(this@withType.name == "jvm"){
-            listOf("win32-x86-64","linux-x86-64","linux-aarch64").forEach{ target ->
+        if (this@withType.name == "jvm") {
+            listOf(
+                "win32-x86-64",
+                "linux-x86-64",
+                "linux-aarch64",
+                "darwin-aarch64",
+                "darwin-x86-64"
+            ).forEach { target ->
                 val file = file("build/libs/${project.name}-$version-$target.jar")
-                if(file.exists()){
-                    artifact(file){
+                if (file.exists()) {
+                    artifact(file) {
                         classifier = target
                     }
                 }

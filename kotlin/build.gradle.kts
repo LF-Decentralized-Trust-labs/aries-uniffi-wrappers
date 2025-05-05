@@ -6,5 +6,5 @@ plugins {
 
 allprojects{
     group = "org.hyperledger"
-    version = "0.2.0-wrapper.GOBLEY"
+    version = "0.3.0-wrapper.0-PRE.0"
 }

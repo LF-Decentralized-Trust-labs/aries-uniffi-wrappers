@@ -1,14 +1,14 @@
-import org.jetbrains.kotlin.gradle.dsl.JvmTarget
-import org.jetbrains.kotlin.gradle.plugin.KotlinSourceSetTree
-import java.util.*
-import gobley.gradle.cargo.dsl.jvm
 import gobley.gradle.GobleyHost
-import gobley.gradle.cargo.dsl.linux
 import gobley.gradle.Variant
 import gobley.gradle.cargo.dsl.android
 import gobley.gradle.cargo.dsl.appleMobile
+import gobley.gradle.cargo.dsl.jvm
+import gobley.gradle.cargo.dsl.linux
 import gobley.gradle.rust.targets.RustPosixTarget
 import gobley.gradle.rust.targets.RustWindowsTarget
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import org.jetbrains.kotlin.gradle.plugin.KotlinSourceSetTree
+import java.util.Properties
 
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
@@ -31,24 +31,24 @@ cargo {
     val home = System.getProperty("user.home")
 
 
-    builds{
-        linux{
+    builds {
+        linux {
             val crossFile = File("$home/.cargo/bin/cross")
-            variants{
+            variants {
                 buildTaskProvider.configure {
                     cargo = crossFile
                 }
             }
         }
-        appleMobile{
-            release.buildTaskProvider.configure{
+        appleMobile {
+            release.buildTaskProvider.configure {
                 additionalEnvironment.put("IPHONEOS_DEPLOYMENT_TARGET", "10.0")
             }
         }
         android {
-            if(GobleyHost.Platform.Windows.isCurrent){
+            if (GobleyHost.Platform.Windows.isCurrent) {
                 val crossFile = File("$home/.cargo/bin/cross.exe")
-                variants{
+                variants {
                     buildTaskProvider.configure {
                         cargo = crossFile
                     }
@@ -56,9 +56,9 @@ cargo {
             }
             dynamicLibraries.addAll("c++_shared")
         }
-        jvm{
+        jvm {
             embedRustLibrary = true
-            if (GobleyHost.Platform.MacOS.isCurrent){
+            if (GobleyHost.Platform.MacOS.isCurrent) {
                 // Don't build for MinGWX64 on MacOS
                 val exclude = listOf(
                     RustPosixTarget.MinGWX64,
@@ -67,7 +67,7 @@ cargo {
                 )
                 embedRustLibrary = !exclude.contains(rustTarget)
             }
-            if(GobleyHost.Platform.Windows.isCurrent){
+            if (GobleyHost.Platform.Windows.isCurrent) {
                 variants {
                     buildTaskProvider.configure {
                         dynamicLibraries.set(listOf("indy_vdr_uniffi.dll"))
@@ -78,13 +78,13 @@ cargo {
     }
 }
 
-uniffi{
+uniffi {
     // See https://github.com/gobley/gobley/discussions/105
     bindgenFromGitBranch(
         repository = "https://github.com/paxbun/gobley",
         branch = "tmp/uniffi-0.28.3-coff",
     )
-    generateFromLibrary{
+    generateFromLibrary {
         packageName = "indy_vdr_uniffi"
         cdylibName = "indy_vdr_uniffi"
         if (GobleyHost.Platform.Windows.isCurrent) {
@@ -100,12 +100,12 @@ ext["githubUsername"] = null
 ext["githubToken"] = null
 
 val secretPropsFile = project.rootProject.file("local.properties")
-if(secretPropsFile.exists()) {
+if (secretPropsFile.exists()) {
     secretPropsFile.reader().use {
         Properties().apply {
             load(it)
         }
-    }.onEach{ (name, value) ->
+    }.onEach { (name, value) ->
         ext[name.toString()] = value
     }
 } else {
@@ -115,9 +115,9 @@ if(secretPropsFile.exists()) {
 
 fun getExtraString(name: String) = ext[name]?.toString()
 
-publishing{
-    repositories{
-        maven{
+publishing {
+    repositories {
+        maven {
             name = "github"
             setUrl("https://maven.pkg.github.com/indicio-tech/aries-uniffi-wrappers")
             credentials {
@@ -129,11 +129,17 @@ publishing{
 
     publications.withType<MavenPublication> {
         // Add artifacts from windows/linux builds to JVM target
-        if(this@withType.name == "jvm"){
-            listOf("win32-x86-64","linux-x86-64","linux-aarch64").forEach{ target ->
+        if (this@withType.name == "jvm") {
+            listOf(
+                "win32-x86-64",
+                "linux-x86-64",
+                "linux-aarch64",
+                "darwin-aarch64",
+                "darwin-x86-64"
+            ).forEach { target ->
                 val file = file("build/libs/${project.name}-$version-$target.jar")
-                if(file.exists()){
-                    artifact(file){
+                if (file.exists()) {
+                    artifact(file) {
                         classifier = target
                     }
                 }
@@ -145,7 +151,7 @@ publishing{
             description.set("Kotlin MPP wrapper around indy vdr uniffi")
             url.set("https://github.com/hyperledger/aries-uniffi-wrappers")
 
-            scm{
+            scm {
                 url.set("https://github.com/hyperledger/aries-uniffi-wrappers")
             }
         }
@@ -156,7 +162,7 @@ kotlin {
     jvmToolchain(17)
     applyDefaultHierarchyTemplate()
 
-    androidTarget{
+    androidTarget {
         publishLibraryVariants("release")
         compilerOptions {
             jvmTarget.set(JvmTarget.JVM_11)
@@ -165,13 +171,13 @@ kotlin {
         unitTestVariant.sourceSetTree.set(KotlinSourceSetTree.unitTest)
     }
 
-    jvm{
+    jvm {
         compilerOptions {
             jvmTarget.set(JvmTarget.JVM_17)
             freeCompilerArgs.add("-Xdebug")
         }
 
-        testRuns["test"].executionTask.configure{
+        testRuns["test"].executionTask.configure {
             useJUnitPlatform()
         }
     }
@@ -185,7 +191,7 @@ kotlin {
     iosSimulatorArm64()
 
     iosArm64()
-    
+
     sourceSets {
         val commonMain by getting {
             dependencies {
@@ -194,7 +200,7 @@ kotlin {
         }
 
         val commonTest by getting {
-            dependencies{
+            dependencies {
                 implementation(kotlin("test"))
                 implementation(libs.kotlinx.coroutines.core)
             }
@@ -219,13 +225,13 @@ kotlin {
     }
 }
 
-android{
+android {
     sourceSets["androidTest"].manifest.srcFile("src/androidTest/AndroidManifest.xml")
     namespace = "indy_vdr_uniffi"
     compileSdk = 35
     ndkVersion = "26.1.10909125"
 
-    defaultConfig{
+    defaultConfig {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         minSdk = 24

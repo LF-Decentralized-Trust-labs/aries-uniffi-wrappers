@@ -1,11 +1,11 @@
+import gobley.gradle.GobleyHost
+import gobley.gradle.Variant
+import gobley.gradle.cargo.dsl.jvm
+import gobley.gradle.cargo.dsl.linux
+import gobley.gradle.rust.targets.RustPosixTarget
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.plugin.KotlinSourceSetTree
-import java.util.*
-import gobley.gradle.cargo.dsl.jvm
-import gobley.gradle.GobleyHost
-import gobley.gradle.cargo.dsl.linux
-import gobley.gradle.Variant
-import gobley.gradle.rust.targets.RustPosixTarget
+import java.util.Properties
 
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
@@ -28,9 +28,9 @@ cargo {
     // Use cross when building Linux
     val home = System.getProperty("user.home")
     val crossFile = File("$home/.cargo/bin/cross")
-    builds{
-        linux{
-            variants{
+    builds {
+        linux {
+            variants {
                 buildTaskProvider.configure {
                     cargo = crossFile
                 }
@@ -38,9 +38,9 @@ cargo {
         }
     }
 
-    builds.jvm{
+    builds.jvm {
         embedRustLibrary = true
-        if(GobleyHost.Platform.MacOS.isCurrent){
+        if (GobleyHost.Platform.MacOS.isCurrent) {
             // Don't build for linux or windows on MacOS (mainly for github actions purposes)
             val exclude = listOf(
                 RustPosixTarget.MinGWX64,
@@ -49,16 +49,16 @@ cargo {
             )
             embedRustLibrary = !exclude.contains(rustTarget)
         }
-        if(rustTarget == RustPosixTarget.MinGWX64){
-            variants{
+        if (rustTarget == RustPosixTarget.MinGWX64) {
+            variants {
                 dynamicLibraries.set(listOf("askar_uniffi.dll"))
             }
         }
     }
 }
 
-uniffi{
-    generateFromLibrary{
+uniffi {
+    generateFromLibrary {
         packageName = "askar_uniffi"
         cdylibName = "askar_uniffi"
         this@generateFromLibrary.disableJavaCleaner = true
@@ -70,12 +70,12 @@ ext["githubUsername"] = null
 ext["githubToken"] = null
 
 val secretPropsFile = project.rootProject.file("local.properties")
-if(secretPropsFile.exists()) {
+if (secretPropsFile.exists()) {
     secretPropsFile.reader().use {
         Properties().apply {
             load(it)
         }
-    }.onEach{ (name, value) ->
+    }.onEach { (name, value) ->
         ext[name.toString()] = value
     }
 } else {
@@ -85,9 +85,9 @@ if(secretPropsFile.exists()) {
 
 fun getExtraString(name: String) = ext[name]?.toString()
 
-publishing{
-    repositories{
-        maven{
+publishing {
+    repositories {
+        maven {
             name = "github"
             setUrl("https://maven.pkg.github.com/indicio-tech/aries-uniffi-wrappers")
             credentials {
@@ -98,11 +98,17 @@ publishing{
     }
 
     publications.withType<MavenPublication> {
-        if(this@withType.name == "jvm"){
-            listOf("win32-x86-64","linux-x86-64","linux-aarch64").forEach{ target ->
+        if (this@withType.name == "jvm") {
+            listOf(
+                "win32-x86-64",
+                "linux-x86-64",
+                "linux-aarch64",
+                "darwin-aarch64",
+                "darwin-x86-64"
+            ).forEach { target ->
                 val file = file("build/libs/${project.name}-$version-$target.jar")
-                if(file.exists()){
-                    artifact(file){
+                if (file.exists()) {
+                    artifact(file) {
                         classifier = target
                     }
                 }
@@ -113,7 +119,7 @@ publishing{
             description.set("Kotlin MPP wrapper around aries askar uniffi")
             url.set("https://github.com/hyperledger/aries-uniffi-wrappers")
 
-            scm{
+            scm {
                 url.set("https://github.com/hyperledger/aries-uniffi-wrappers")
             }
         }
@@ -124,7 +130,7 @@ kotlin {
     jvmToolchain(17)
     applyDefaultHierarchyTemplate()
 
-    androidTarget{
+    androidTarget {
         publishLibraryVariants("release")
         compilerOptions {
             jvmTarget.set(JvmTarget.JVM_11)
@@ -133,13 +139,13 @@ kotlin {
         unitTestVariant.sourceSetTree.set(KotlinSourceSetTree.unitTest)
     }
 
-    jvm{
+    jvm {
         compilerOptions {
             jvmTarget.set(JvmTarget.JVM_17)
             freeCompilerArgs.add("-Xdebug")
         }
 
-        testRuns["test"].executionTask.configure{
+        testRuns["test"].executionTask.configure {
             useJUnitPlatform()
         }
     }
@@ -153,7 +159,7 @@ kotlin {
     iosSimulatorArm64()
 
     iosArm64()
-    
+
     sourceSets {
         val commonMain by getting {
             dependencies {
@@ -162,7 +168,7 @@ kotlin {
         }
 
         val commonTest by getting {
-            dependencies{
+            dependencies {
                 implementation(kotlin("test"))
                 implementation(libs.kotlinx.coroutines.core)
             }
@@ -187,13 +193,13 @@ kotlin {
 }
 
 
-android{
+android {
     sourceSets["androidTest"].manifest.srcFile("src/androidTest/AndroidManifest.xml")
     namespace = "askar_uniffi"
     compileSdk = 35
     ndkVersion = "26.1.10909125"
 
-    defaultConfig{
+    defaultConfig {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         minSdk = 24
