@@ -42,7 +42,7 @@ To add a github packages repository in a seperate project you will have to have 
         mavenCentral()
         google()
         maven {
-            setUrl("https://maven.pkg.github.com/hyperledger/aries-uniffi-wrappers")
+            setUrl("https://maven.pkg.github.com/LF-Decentralized-Trust-labs/aries-uniffi-wrappers")
             credentials {
                 username = getExtraString("githubUsername")
                 password = getExtraString("githubToken")
@@ -54,10 +54,27 @@ To add a github packages repository in a seperate project you will have to have 
 Now you will add the libraries as a dependency in your `build.gradle.kts` like so:
 ```kotlin
     dependencies {
-        implementation("org.hyperledger:anoncreds_uniffi:0.1.1-wrapper.1")
-        implementation("org.hyperledger:indy_vdr_uniffi:0.1.1-wrapper.1")
-        implementation("org.hyperledger:askar_uniffi:0.1.1-wrapper.1")
+        implementation("org.hyperledger:anoncreds_uniffi:0.3.0-wrapper.0")
+        implementation("org.hyperledger:indy_vdr_uniffi:0.3.0-wrapper.0")
+        implementation("org.hyperledger:askar_uniffi:0.3.0-wrapper.0")
     }
+```
+
+If you would like to add desktop JVM targets you can do so by also adding them as a dependency like so:
+```Kotlin
+// Main library
+implementation("org.hyperledger:indy_vdr_uniffi:0.3.0-wrapper.0")
+
+// Desktop targets
+listOf(
+    "win32-x86-64",
+    "linux-x86-64",
+    "linux-aarch64",
+    "darwin-aarch64",
+    "darwin-x86-64"
+).forEach{
+    implementation("org.hyperledger:indy_vdr_uniffi-jvm:0.3.0-wrapper.0:$it")
+}
 ```
 
 Take a look at the tests in `kotlin/${library}/src/commonTest` for usage examples.

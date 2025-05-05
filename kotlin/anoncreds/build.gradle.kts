@@ -96,7 +96,7 @@ publishing {
     repositories {
         maven {
             name = "github"
-            setUrl("https://maven.pkg.github.com/indicio-tech/aries-uniffi-wrappers")
+            setUrl("https://maven.pkg.github.com/LF-Decentralized-Trust-labs/aries-uniffi-wrappers")
             credentials {
                 username = getExtraString("githubUsername")
                 password = getExtraString("githubToken")
@@ -124,10 +124,10 @@ publishing {
         pom {
             name.set("Anoncreds Uniffi Kotlin")
             description.set("Kotlin MPP wrapper around anoncreds uniffi")
-            url.set("https://github.com/hyperledger/aries-uniffi-wrappers")
+            url.set("https://github.com/LF-Decentralized-Trust-labs/aries-uniffi-wrappers")
 
             scm {
-                url.set("https://github.com/hyperledger/aries-uniffi-wrappers")
+                url.set("https://github.com/LF-Decentralized-Trust-labs/aries-uniffi-wrappers")
             }
         }
     }
