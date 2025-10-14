@@ -1,5 +1,6 @@
 import gobley.gradle.GobleyHost
 import gobley.gradle.Variant
+import gobley.gradle.cargo.dsl.android
 import gobley.gradle.cargo.dsl.jvm
 import gobley.gradle.cargo.dsl.linux
 import gobley.gradle.rust.targets.RustPosixTarget
@@ -36,25 +37,34 @@ cargo {
                 }
             }
         }
-    }
 
-    builds.jvm {
-        embedRustLibrary = true
-        if (GobleyHost.Platform.MacOS.isCurrent) {
-            // Don't build for linux or windows on MacOS (mainly for github actions purposes)
-            val exclude = listOf(
-                RustPosixTarget.MinGWX64,
-                RustPosixTarget.LinuxArm64,
-                RustPosixTarget.LinuxX64
-            )
-            embedRustLibrary = !exclude.contains(rustTarget)
+        android{
+            variants{
+                buildTaskProvider.configure {
+                    additionalEnvironment.put("RUSTFLAGS", "-C link-args=-Wl,-z,max-page-size=16384")
+                }
+            }
         }
-        if (rustTarget == RustPosixTarget.MinGWX64) {
-            variants {
-                dynamicLibraries.set(listOf("askar_uniffi.dll"))
+
+        jvm {
+            embedRustLibrary = true
+            if (GobleyHost.Platform.MacOS.isCurrent) {
+                // Don't build for linux or windows on MacOS (mainly for github actions purposes)
+                val exclude = listOf(
+                    RustPosixTarget.MinGWX64,
+                    RustPosixTarget.LinuxArm64,
+                    RustPosixTarget.LinuxX64
+                )
+                embedRustLibrary = !exclude.contains(rustTarget)
+            }
+            if (rustTarget == RustPosixTarget.MinGWX64) {
+                variants {
+                    dynamicLibraries.set(listOf("askar_uniffi.dll"))
+                }
             }
         }
     }
+
 }
 
 uniffi {
@@ -197,7 +207,7 @@ android {
     sourceSets["androidTest"].manifest.srcFile("src/androidTest/AndroidManifest.xml")
     namespace = "askar_uniffi"
     compileSdk = 35
-    ndkVersion = "26.1.10909125"
+    ndkVersion = "28.2.13676358"
 
     defaultConfig {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"

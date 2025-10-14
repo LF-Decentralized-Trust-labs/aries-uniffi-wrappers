@@ -1,5 +1,6 @@
 import gobley.gradle.GobleyHost
 import gobley.gradle.Variant
+import gobley.gradle.cargo.dsl.android
 import gobley.gradle.cargo.dsl.appleMobile
 import gobley.gradle.cargo.dsl.jvm
 import gobley.gradle.cargo.dsl.linux
@@ -37,13 +38,21 @@ cargo {
                 }
             }
         }
-    }
-    builds {
+
+        android{
+            variants{
+                buildTaskProvider.configure {
+                    additionalEnvironment.put("RUSTFLAGS", "-C link-args=-Wl,-z,max-page-size=16384")
+                }
+            }
+        }
+
         appleMobile {
             release.buildTaskProvider.configure {
                 additionalEnvironment.put("IPHONEOS_DEPLOYMENT_TARGET", "10")
             }
         }
+
         jvm {
             embedRustLibrary = true
             if (GobleyHost.Platform.MacOS.isCurrent) {
@@ -205,7 +214,7 @@ kotlin {
 android {
     namespace = "anoncreds_uniffi"
     compileSdk = 35
-    ndkVersion = "26.1.10909125"
+    ndkVersion = "28.2.13676358"
 
     defaultConfig {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
