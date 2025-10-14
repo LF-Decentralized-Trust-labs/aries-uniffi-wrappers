@@ -2,6 +2,7 @@ import gobley.gradle.GobleyHost
 import gobley.gradle.Variant
 import gobley.gradle.cargo.dsl.android
 import gobley.gradle.cargo.dsl.appleMobile
+import gobley.gradle.cargo.dsl.macos
 import gobley.gradle.cargo.dsl.jvm
 import gobley.gradle.cargo.dsl.linux
 import gobley.gradle.rust.targets.RustPosixTarget
@@ -40,22 +41,39 @@ cargo {
                 }
             }
         }
+
+        macos {
+            release.buildTaskProvider.configure{
+                additionalEnvironment.put("CC", "clang")
+                additionalEnvironment.put("CXX", "clang++")
+                additionalEnvironment.put("CFLAGS", "-Wno-error=deprecated")
+                additionalEnvironment.put("CXXFLAGS", "-Wno-error=deprecated")
+            }
+        }
+
         appleMobile {
             release.buildTaskProvider.configure {
                 additionalEnvironment.put("IPHONEOS_DEPLOYMENT_TARGET", "10.0")
+                additionalEnvironment.put("CC", "clang")
+                additionalEnvironment.put("CXX", "clang++")
             }
         }
+
         android {
-            if (GobleyHost.Platform.Windows.isCurrent) {
-                val crossFile = File("$home/.cargo/bin/cross.exe")
-                variants {
+            dynamicLibraries.addAll("c++_shared")
+            variants{
+                buildTaskProvider.configure {
+                    additionalEnvironment.put("RUSTFLAGS", "-C link-args=-Wl,-z,max-page-size=16384")
+                }
+                if (GobleyHost.Platform.Windows.isCurrent) {
+                    val crossFile = File("$home/.cargo/bin/cross.exe")
                     buildTaskProvider.configure {
                         cargo = crossFile
                     }
                 }
             }
-            dynamicLibraries.addAll("c++_shared")
         }
+
         jvm {
             embedRustLibrary = true
             if (GobleyHost.Platform.MacOS.isCurrent) {
@@ -229,7 +247,7 @@ android {
     sourceSets["androidTest"].manifest.srcFile("src/androidTest/AndroidManifest.xml")
     namespace = "indy_vdr_uniffi"
     compileSdk = 35
-    ndkVersion = "26.1.10909125"
+    ndkVersion = "28.2.13676358"
 
     defaultConfig {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
