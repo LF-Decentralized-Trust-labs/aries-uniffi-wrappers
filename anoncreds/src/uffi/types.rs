@@ -2,7 +2,7 @@ use super::error::ErrorCode;
 use anoncreds::data_types::{
     cred_def::CredentialDefinition as RustCredentialDefinition,
     rev_status_list::RevocationStatusList as RustRevocationStatusList,
-    schema::Schema as RustSchema,
+    schema::Schema as RustSchema, w3c::credential::W3CCredential as RustW3cCredential,
 };
 use anoncreds::types::{
     Credential as RustCredential, CredentialDefinitionPrivate as RustCredentialDefinitionPrivate,
@@ -223,6 +223,8 @@ impl Credential {
     }
 }
 
+pub struct W3CCredential(pub RustW3cCredential);
+
 #[derive(uniffi::Record)]
 pub struct RequestedCredential {
     pub cred: Arc<Credential>,
@@ -230,6 +232,52 @@ pub struct RequestedCredential {
     pub rev_state: Option<Arc<CredentialRevocationState>>,
     pub requested_attributes: HashMap<String, bool>,
     pub requested_predicates: Vec<String>,
+}
+
+#[uniffi::export]
+impl W3CCredential {
+    #[uniffi::constructor]
+    pub fn new(json: String) -> Result<Arc<Self>, ErrorCode> {
+        Ok(Arc::new(Self(serde_json::from_str::<RustW3cCredential>(
+            &json,
+        )?)))
+    }
+
+    pub fn to_json(&self) -> String {
+        serde_json::to_string(&self.0).unwrap()
+    }
+
+    pub fn context(&self) -> String {
+        serde_json::to_string(&self.0.context).unwrap()
+    }
+
+    pub fn id(&self) -> Option<String> {
+        self.0.id.as_ref().map(|uri| uri.0.clone())
+    }
+
+    pub fn r#type(&self) -> Vec<String> {
+        self.0.type_.0.iter().cloned().collect()
+    }
+
+    pub fn issuer(&self) -> String {
+        serde_json::to_string(&self.0.issuer).unwrap()
+    }
+
+    pub fn credential_subject(&self) -> String {
+        serde_json::to_string(&self.0.credential_subject).unwrap()
+    }
+
+    pub fn issuance_date(&self) -> String {
+        serde_json::to_string(&self.0.issuance_date).unwrap()
+    }
+
+    pub fn proof(&self) -> String {
+        serde_json::to_string(&self.0.proof).unwrap()
+    }
+
+    pub fn valid_from(&self) -> String {
+        serde_json::to_string(&self.0.valid_from).unwrap()
+    }
 }
 
 macro_rules! define_serializable_struct {
