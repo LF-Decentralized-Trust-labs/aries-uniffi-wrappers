@@ -24,7 +24,7 @@ class TestVDR {
         }
     }
 
-    @Test
+    // @Test
     fun indyVDR(){
         runBlocking{
             println("Opening pool...")

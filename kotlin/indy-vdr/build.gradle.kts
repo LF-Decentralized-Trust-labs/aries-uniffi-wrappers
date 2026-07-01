@@ -135,14 +135,14 @@ fun getExtraString(name: String) = ext[name]?.toString()
 
 publishing {
     repositories {
-        maven {
+        /* maven {
             name = "github"
             setUrl("https://maven.pkg.github.com/LF-Decentralized-Trust-labs/aries-uniffi-wrappers")
             credentials {
-                username = getExtraString("githubUsername")
-                password = getExtraString("githubToken")
+                username = getExtraString("githubUsername") ?: ""
+                password = getExtraString("githubToken") ?: ""
             }
-        }
+        } */
     }
 
     publications.withType<MavenPublication> {
@@ -209,6 +209,8 @@ kotlin {
     iosSimulatorArm64()
 
     iosArm64()
+
+
 
     sourceSets {
         val commonMain by getting {

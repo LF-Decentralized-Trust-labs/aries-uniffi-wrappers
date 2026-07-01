@@ -1,6 +1,5 @@
 import gobley.gradle.GobleyHost
 import gobley.gradle.Variant
-import gobley.gradle.cargo.dsl.android
 import gobley.gradle.cargo.dsl.appleMobile
 import gobley.gradle.cargo.dsl.jvm
 import gobley.gradle.cargo.dsl.linux
@@ -8,6 +7,7 @@ import gobley.gradle.rust.targets.RustPosixTarget
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.plugin.KotlinSourceSetTree
 import java.util.Properties
+
 
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
@@ -38,21 +38,13 @@ cargo {
                 }
             }
         }
-
-        android{
-            variants{
-                buildTaskProvider.configure {
-                    additionalEnvironment.put("RUSTFLAGS", "-C link-args=-Wl,-z,max-page-size=16384")
-                }
-            }
-        }
-
+    }
+    builds {
         appleMobile {
             release.buildTaskProvider.configure {
                 additionalEnvironment.put("IPHONEOS_DEPLOYMENT_TARGET", "10")
             }
         }
-
         jvm {
             embedRustLibrary = true
             if (GobleyHost.Platform.MacOS.isCurrent) {
@@ -101,46 +93,39 @@ if (secretPropsFile.exists()) {
 
 fun getExtraString(name: String) = ext[name]?.toString()
 
-publishing {
-    repositories {
-        maven {
-            name = "github"
-            setUrl("https://maven.pkg.github.com/LF-Decentralized-Trust-labs/aries-uniffi-wrappers")
-            credentials {
-                username = getExtraString("githubUsername")
-                password = getExtraString("githubToken")
-            }
-        }
-    }
 
-    publications.withType<MavenPublication> {
-        if (this@withType.name == "jvm") {
-            listOf(
-                "win32-x86-64",
-                "linux-x86-64",
-                "linux-aarch64",
-                "darwin-aarch64",
-                "darwin-x86-64"
-            ).forEach { target ->
-                val file = file("build/libs/${project.name}-$version-$target.jar")
-                if (file.exists()) {
-                    artifact(file) {
-                        classifier = target
-                    }
+publishing {
+    publications {
+        
+        create<MavenPublication>("anoncredsUniffi") {
+            groupId = group.toString()
+            artifactId = "anoncreds-uniffi"
+            version = libVersion
+
+            // AAR gerado pelo Android library (release)
+            val aar = layout.buildDirectory.file("outputs/aar/${project.name}-release.aar")
+            artifact(aar) {
+                extension = "aar"
+            }
+
+            pom {
+                name.set("anoncreds-uniffi")
+                description.set("Anoncreds UDL/UniFFI Android AAR")
+
+                scm {
+                    url.set("https://github.com/LF-Decentralized-Trust-labs/aries-uniffi-wrappers")
                 }
             }
         }
-        pom {
-            name.set("Anoncreds Uniffi Kotlin")
-            description.set("Kotlin MPP wrapper around anoncreds uniffi")
-            url.set("https://github.com/LF-Decentralized-Trust-labs/aries-uniffi-wrappers")
 
-            scm {
-                url.set("https://github.com/LF-Decentralized-Trust-labs/aries-uniffi-wrappers")
-            }
-        }
+
     }
+
+
 }
+
+tasks.matching { it.name.startsWith("publishAnoncredsUniffiPublicationTo") }
+    .configureEach { dependsOn("assembleRelease") }
 
 
 kotlin {
@@ -214,7 +199,7 @@ kotlin {
 android {
     namespace = "anoncreds_uniffi"
     compileSdk = 35
-    ndkVersion = "28.2.13676358"
+    ndkVersion = "26.1.10909125"
 
     defaultConfig {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
