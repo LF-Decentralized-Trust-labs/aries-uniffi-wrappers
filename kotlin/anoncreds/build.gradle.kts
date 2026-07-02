@@ -95,33 +95,44 @@ fun getExtraString(name: String) = ext[name]?.toString()
 
 
 publishing {
-    publications {
-        
-        create<MavenPublication>("anoncredsUniffi") {
-            groupId = group.toString()
-            artifactId = "anoncreds-uniffi"
-            version = libVersion
-
-            // AAR gerado pelo Android library (release)
-            val aar = layout.buildDirectory.file("outputs/aar/${project.name}-release.aar")
-            artifact(aar) {
-                extension = "aar"
+    repositories {
+        maven {
+            name = "github"
+            setUrl("https://maven.pkg.github.com/LF-Decentralized-Trust-labs/aries-uniffi-wrappers")
+            credentials {
+                username = getExtraString("githubUsername")
+                password = getExtraString("githubToken")
             }
+        }
+    }
 
-            pom {
-                name.set("anoncreds-uniffi")
-                description.set("Anoncreds UDL/UniFFI Android AAR")
-
-                scm {
-                    url.set("https://github.com/LF-Decentralized-Trust-labs/aries-uniffi-wrappers")
+    publications.withType<MavenPublication> {
+        if (this@withType.name == "jvm") {
+            listOf(
+                "win32-x86-64",
+                "linux-x86-64",
+                "linux-aarch64",
+                "darwin-aarch64",
+                "darwin-x86-64"
+            ).forEach { target ->
+                val file = file("build/libs/${project.name}-$version-$target.jar")
+                if (file.exists()) {
+                    artifact(file) {
+                        classifier = target
+                    }
                 }
             }
         }
+        pom {
+            name.set("Anoncreds Uniffi Kotlin")
+            description.set("Kotlin MPP wrapper around anoncreds uniffi")
+            url.set("https://github.com/LF-Decentralized-Trust-labs/aries-uniffi-wrappers")
 
-
+            scm {
+                url.set("https://github.com/LF-Decentralized-Trust-labs/aries-uniffi-wrappers")
+            }
+        }
     }
-
-
 }
 
 tasks.matching { it.name.startsWith("publishAnoncredsUniffiPublicationTo") }

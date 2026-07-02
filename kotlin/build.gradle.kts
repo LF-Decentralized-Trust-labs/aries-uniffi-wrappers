@@ -6,7 +6,7 @@ plugins {
 
 allprojects{
     group = "org.hyperledger"
-    version = "0.3.0-wrapper.1-SNAPSHOT"
+    version = "0.3.0-wrapper.1"
 }
 
 
