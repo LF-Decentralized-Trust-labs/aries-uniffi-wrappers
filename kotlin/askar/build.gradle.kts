@@ -41,6 +41,7 @@ cargo {
         android{
             variants{
                 buildTaskProvider.configure {
+                    // Required by Google Play for native libraries on 16 KB page-size devices.
                     additionalEnvironment.put("RUSTFLAGS", "-C link-args=-Wl,-z,max-page-size=16384")
                 }
             }
