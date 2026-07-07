@@ -33,20 +33,6 @@ And add the following dependency to your target:
 
 Take a look at the tests in `swift/Tests` directory for examples on how to use the wrappers.
 
-#### Building AnonCreds for iOS
-
-The AnonCreds Swift framework is built with `anoncreds/build-swift-framework.sh`.
-The script pins the minimum iOS deployment target to `15.0` and macOS to `12.0` before running `cargo build` for each Apple target.
-
-This is required with newer Xcode SDKs because dependencies such as `openssl-sys` can otherwise be compiled for a newer iOS SDK while the final Rust static library is linked as iOS `10.0`. The typical failure looks like this:
-
-```text
-object file (...) was built for newer 'iOS' version (26.0) than being linked (10.0)
-Undefined symbols for architecture arm64:
-  "___chkstk_darwin"
-```
-
-The script sets `IPHONEOS_DEPLOYMENT_TARGET`, `MACOSX_DEPLOYMENT_TARGET`, and target-specific `RUSTFLAGS` (`-miphoneos-version-min`, `-mios-simulator-version-min`, or `-mmacosx-version-min`) so Rust and clang link all slices with compatible deployment targets.
 
 ### Kotlin
 

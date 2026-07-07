@@ -1,13 +1,14 @@
 import gobley.gradle.GobleyHost
 import gobley.gradle.Variant
+import gobley.gradle.cargo.dsl.android
 import gobley.gradle.cargo.dsl.appleMobile
 import gobley.gradle.cargo.dsl.jvm
 import gobley.gradle.cargo.dsl.linux
+import gobley.gradle.cargo.dsl.macos
 import gobley.gradle.rust.targets.RustPosixTarget
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.plugin.KotlinSourceSetTree
 import java.util.Properties
-
 
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
@@ -27,28 +28,48 @@ cargo {
     jvmVariant = Variant.Release
     nativeVariant = Variant.Release
 
-    // Use cross when building Linux
     val home = System.getProperty("user.home")
-    val crossFile = File("$home/.cargo/bin/cross")
+
     builds {
         linux {
+            val crossFile = File("$home/.cargo/bin/cross")
             variants {
                 buildTaskProvider.configure {
                     cargo = crossFile
                 }
             }
         }
-    }
-    builds {
-        appleMobile {
-            release.buildTaskProvider.configure {
-                additionalEnvironment.put("IPHONEOS_DEPLOYMENT_TARGET", "10")
+
+        macos {
+            release.buildTaskProvider.configure{
+                additionalEnvironment.put("CC", "clang")
+                additionalEnvironment.put("CXX", "clang++")
+                additionalEnvironment.put("CFLAGS", "-Wno-error=deprecated")
+                additionalEnvironment.put("CXXFLAGS", "-Wno-error=deprecated")
             }
         }
+
+        appleMobile {
+            release.buildTaskProvider.configure {
+                additionalEnvironment.put("IPHONEOS_DEPLOYMENT_TARGET", "10.0")
+                additionalEnvironment.put("CC", "clang")
+                additionalEnvironment.put("CXX", "clang++")
+            }
+        }
+
+        android {
+            dynamicLibraries.addAll("c++_shared")
+            variants{
+                buildTaskProvider.configure {
+                    // Required by Google Play for native libraries on 16 KB page-size devices.
+                    additionalEnvironment.put("RUSTFLAGS", "-C link-args=-Wl,-z,max-page-size=16384")
+                }
+            }
+        }
+
         jvm {
             embedRustLibrary = true
             if (GobleyHost.Platform.MacOS.isCurrent) {
-                // Don't build for linux or windows on MacOS (mainly for github actions purposes)
                 val exclude = listOf(
                     RustPosixTarget.MinGWX64,
                     RustPosixTarget.LinuxArm64,
@@ -99,10 +120,10 @@ publishing {
         maven {
             name = "github"
             setUrl("https://maven.pkg.github.com/LF-Decentralized-Trust-labs/aries-uniffi-wrappers")
-            credentials {
-                username = getExtraString("githubUsername")
-                password = getExtraString("githubToken")
-            }
+                credentials {
+                    username = getExtraString("githubUsername") ?: ""
+                    password = getExtraString("githubToken") ?: ""
+                }
         }
     }
 
@@ -134,10 +155,6 @@ publishing {
         }
     }
 }
-
-tasks.matching { it.name.startsWith("publishAnoncredsUniffiPublicationTo") }
-    .configureEach { dependsOn("assembleRelease") }
-
 
 kotlin {
     jvmToolchain(17)
@@ -183,7 +200,7 @@ kotlin {
         val commonTest by getting {
             dependencies {
                 implementation(kotlin("test"))
-                implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2")
+                implementation(libs.kotlinx.coroutines.core)
             }
         }
 
@@ -208,9 +225,10 @@ kotlin {
 
 
 android {
+    sourceSets["androidTest"].manifest.srcFile("src/androidTest/AndroidManifest.xml")
     namespace = "anoncreds_uniffi"
     compileSdk = 35
-    ndkVersion = "26.1.10909125"
+    ndkVersion = "28.2.13676358"
 
     defaultConfig {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
