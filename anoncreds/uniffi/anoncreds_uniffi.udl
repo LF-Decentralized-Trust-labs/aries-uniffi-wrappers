@@ -19,10 +19,14 @@ interface RevocationRegistryDefinitionPrivate {};
 interface RevocationStatusList {};
 interface RevocationRegistryDelta {};
 interface Schema {};
+interface W3CCredential {};
 interface Verifier {
     constructor();
 };
 interface CredentialConversions {
+    constructor();
+};
+interface W3cProcess {
     constructor();
 };
 

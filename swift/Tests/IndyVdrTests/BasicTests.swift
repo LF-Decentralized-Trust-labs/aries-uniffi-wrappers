@@ -69,6 +69,6 @@ final class BasicTests: XCTestCase {
         req = try ledger.buildGetRevocRegDeltaRequest(submitterDid: nil, revRegId: revocId, from: nil, to: 1)
         print("Get revoc reg delta request:", try req.body())
         
-        try await pool.close()
+        try await pool.closePool()
     }
 }

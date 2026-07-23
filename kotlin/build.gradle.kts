@@ -9,6 +9,8 @@ allprojects{
     version = "0.3.0-wrapper.1"
 }
 
+
+
 tasks.register("publishAllToMavenLocal"){
     dependsOn("anoncreds_uniffi:publishToMavenLocal")
     dependsOn("askar_uniffi:publishToMavenLocal")

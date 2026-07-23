@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use super::{error::ErrorCode, types::Credential};
 use anoncreds::data_types::issuer_id::IssuerId;
 use anoncreds::data_types::w3c::VerifiableCredentialSpecVersion;
 use anoncreds::w3c::credential_conversion::credential_from_w3c;
@@ -7,7 +8,6 @@ use anoncreds::{
     data_types::w3c::credential::W3CCredential, w3c::credential_conversion::credential_to_w3c,
 };
 use std::convert::TryFrom;
-use super::{error::ErrorCode, types::Credential};
 
 pub struct CredentialConversions {}
 
@@ -38,7 +38,7 @@ impl CredentialConversions {
         let issuer_id = IssuerId::new(&issuer_id_string).expect("Error initializing issuer_id");
         let version = match version_string {
             Some(ref v) => Some(VerifiableCredentialSpecVersion::try_from(v.as_str())?),
-            None => None
+            None => None,
         };
 
         let w3c_credential = credential_to_w3c(&credential.0, &issuer_id, version)?;

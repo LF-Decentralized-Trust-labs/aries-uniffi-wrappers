@@ -25,11 +25,11 @@ final class StoreTests: XCTestCase {
 
     override func tearDown() async throws {
         if session != nil {
-            try await session.close()
+            try await session.closeSession()
         }
         if store != nil {
             let storeURL = temporaryDirectoryURL.appendingPathComponent("test.db")
-            try await store.close()
+            try await store.closeStore()
             _ = try await storeManager.remove(specUri: URI_SCHEMA + storeURL.path)
         }
         try await super.tearDown()
@@ -175,7 +175,7 @@ final class StoreTests: XCTestCase {
                                                                keyMethod: "raw",
                                                                passKey: key,
                                                                profile: nil)
-        try await upgraded.close()
+        try await upgraded.closeStore()
         _ = try await storeManager.remove(specUri: URI_SCHEMA + copyPath)
     }
 }

@@ -25,10 +25,33 @@ X86_64_APPLE_DARWIN_PATH="./target/x86_64-apple-darwin/release"
 
 targets=("aarch64-apple-ios" "aarch64-apple-ios-sim" "x86_64-apple-ios" "aarch64-apple-darwin" "x86_64-apple-darwin")
 
+# Keep Rust, clang, and dependencies such as openssl-sys on the same minimum
+# Apple OS versions. Without these exports/link args, newer Xcode SDKs can build
+# objects for iOS 26.0 while cargo links the final iOS library as iOS 10.0,
+# which fails with symbols such as ___chkstk_darwin during aarch64 iOS linking.
+export IPHONEOS_DEPLOYMENT_TARGET="$MIN_IOS_VERSION"
+export MACOSX_DEPLOYMENT_TARGET="12.0"
+
 # Build for all targets
 for target in "${targets[@]}"; do
   echo "Building for $target..."
   rustup target add $target
+
+  # Pass the matching deployment target flag for each Apple target explicitly to
+  # the Rust linker invocation. Simulator, device, and macOS use different clang
+  # flags, so one generic iOS flag is not enough for the full XCFramework build.
+  case "$target" in
+    aarch64-apple-ios)
+      export RUSTFLAGS="-C link-arg=-miphoneos-version-min=$MIN_IOS_VERSION"
+      ;;
+    aarch64-apple-ios-sim|x86_64-apple-ios)
+      export RUSTFLAGS="-C link-arg=-mios-simulator-version-min=$MIN_IOS_VERSION"
+      ;;
+    aarch64-apple-darwin|x86_64-apple-darwin)
+      export RUSTFLAGS="-C link-arg=-mmacosx-version-min=$MACOSX_DEPLOYMENT_TARGET"
+      ;;
+  esac
+
   cargo build --release --target $target
 done
 
