@@ -11,10 +11,10 @@ import Foundation
 // might be in a separate module, or it might be compiled inline into
 // this module. This is a bit of light hackery to work with both.
 #if canImport(askar_uniffiFFI)
-import askar_uniffiFFI
+    import askar_uniffiFFI
 #endif
 
-fileprivate extension RustBuffer {
+private extension RustBuffer {
     // Allocate a new buffer, copying the contents of a `UInt8` array.
     init(bytes: [UInt8]) {
         let rbuf = bytes.withUnsafeBufferPointer { ptr in
@@ -24,7 +24,7 @@ fileprivate extension RustBuffer {
     }
 
     static func empty() -> RustBuffer {
-        RustBuffer(capacity: 0, len:0, data: nil)
+        RustBuffer(capacity: 0, len: 0, data: nil)
     }
 
     static func from(_ ptr: UnsafeBufferPointer<UInt8>) -> RustBuffer {
@@ -38,7 +38,7 @@ fileprivate extension RustBuffer {
     }
 }
 
-fileprivate extension ForeignBytes {
+private extension ForeignBytes {
     init(bufferPointer: UnsafeBufferPointer<UInt8>) {
         self.init(len: Int32(bufferPointer.count), data: bufferPointer.baseAddress)
     }
@@ -51,7 +51,7 @@ fileprivate extension ForeignBytes {
 // Helper classes/extensions that don't change.
 // Someday, this will be in a library of its own.
 
-fileprivate extension Data {
+private extension Data {
     init(rustBuffer: RustBuffer) {
         self.init(
             bytesNoCopy: rustBuffer.data!,
@@ -75,15 +75,15 @@ fileprivate extension Data {
 //
 // Instead, the read() method and these helper functions input a tuple of data
 
-fileprivate func createReader(data: Data) -> (data: Data, offset: Data.Index) {
+private func createReader(data: Data) -> (data: Data, offset: Data.Index) {
     (data: data, offset: 0)
 }
 
 // Reads an integer at the current offset, in big-endian order, and advances
 // the offset on success. Throws if reading the integer would move the
 // offset past the end of the buffer.
-fileprivate func readInt<T: FixedWidthInteger>(_ reader: inout (data: Data, offset: Data.Index)) throws -> T {
-    let range = reader.offset..<reader.offset + MemoryLayout<T>.size
+private func readInt<T: FixedWidthInteger>(_ reader: inout (data: Data, offset: Data.Index)) throws -> T {
+    let range = reader.offset ..< reader.offset + MemoryLayout<T>.size
     guard reader.data.count >= range.upperBound else {
         throw UniffiInternalError.bufferOverflow
     }
@@ -93,38 +93,38 @@ fileprivate func readInt<T: FixedWidthInteger>(_ reader: inout (data: Data, offs
         return value as! T
     }
     var value: T = 0
-    let _ = withUnsafeMutableBytes(of: &value, { reader.data.copyBytes(to: $0, from: range)})
+    let _ = withUnsafeMutableBytes(of: &value) { reader.data.copyBytes(to: $0, from: range) }
     reader.offset = range.upperBound
     return value.bigEndian
 }
 
 // Reads an arbitrary number of bytes, to be used to read
 // raw bytes, this is useful when lifting strings
-fileprivate func readBytes(_ reader: inout (data: Data, offset: Data.Index), count: Int) throws -> Array<UInt8> {
-    let range = reader.offset..<(reader.offset+count)
+private func readBytes(_ reader: inout (data: Data, offset: Data.Index), count: Int) throws -> [UInt8] {
+    let range = reader.offset ..< (reader.offset + count)
     guard reader.data.count >= range.upperBound else {
         throw UniffiInternalError.bufferOverflow
     }
     var value = [UInt8](repeating: 0, count: count)
-    value.withUnsafeMutableBufferPointer({ buffer in
+    value.withUnsafeMutableBufferPointer { buffer in
         reader.data.copyBytes(to: buffer, from: range)
-    })
+    }
     reader.offset = range.upperBound
     return value
 }
 
 // Reads a float at the current offset.
-fileprivate func readFloat(_ reader: inout (data: Data, offset: Data.Index)) throws -> Float {
-    return Float(bitPattern: try readInt(&reader))
+private func readFloat(_ reader: inout (data: Data, offset: Data.Index)) throws -> Float {
+    return try Float(bitPattern: readInt(&reader))
 }
 
 // Reads a float at the current offset.
-fileprivate func readDouble(_ reader: inout (data: Data, offset: Data.Index)) throws -> Double {
-    return Double(bitPattern: try readInt(&reader))
+private func readDouble(_ reader: inout (data: Data, offset: Data.Index)) throws -> Double {
+    return try Double(bitPattern: readInt(&reader))
 }
 
 // Indicates if the offset has reached the end of the buffer.
-fileprivate func hasRemaining(_ reader: (data: Data, offset: Data.Index)) -> Bool {
+private func hasRemaining(_ reader: (data: Data, offset: Data.Index)) -> Bool {
     return reader.offset < reader.data.count
 }
 
@@ -132,11 +132,11 @@ fileprivate func hasRemaining(_ reader: (data: Data, offset: Data.Index)) -> Boo
 // struct, but we use standalone functions instead in order to make external
 // types work.  See the above discussion on Readers for details.
 
-fileprivate func createWriter() -> [UInt8] {
+private func createWriter() -> [UInt8] {
     return []
 }
 
-fileprivate func writeBytes<S>(_ writer: inout [UInt8], _ byteArr: S) where S: Sequence, S.Element == UInt8 {
+private func writeBytes<S>(_ writer: inout [UInt8], _ byteArr: S) where S: Sequence, S.Element == UInt8 {
     writer.append(contentsOf: byteArr)
 }
 
@@ -144,22 +144,22 @@ fileprivate func writeBytes<S>(_ writer: inout [UInt8], _ byteArr: S) where S: S
 //
 // Warning: make sure what you are trying to write
 // is in the correct type!
-fileprivate func writeInt<T: FixedWidthInteger>(_ writer: inout [UInt8], _ value: T) {
+private func writeInt<T: FixedWidthInteger>(_ writer: inout [UInt8], _ value: T) {
     var value = value.bigEndian
     withUnsafeBytes(of: &value) { writer.append(contentsOf: $0) }
 }
 
-fileprivate func writeFloat(_ writer: inout [UInt8], _ value: Float) {
+private func writeFloat(_ writer: inout [UInt8], _ value: Float) {
     writeInt(&writer, value.bitPattern)
 }
 
-fileprivate func writeDouble(_ writer: inout [UInt8], _ value: Double) {
+private func writeDouble(_ writer: inout [UInt8], _ value: Double) {
     writeInt(&writer, value.bitPattern)
 }
 
 // Protocol for types that transfer other types across the FFI. This is
 // analogous to the Rust trait of the same name.
-fileprivate protocol FfiConverter {
+private protocol FfiConverter {
     associatedtype FfiType
     associatedtype SwiftType
 
@@ -170,19 +170,19 @@ fileprivate protocol FfiConverter {
 }
 
 // Types conforming to `Primitive` pass themselves directly over the FFI.
-fileprivate protocol FfiConverterPrimitive: FfiConverter where FfiType == SwiftType { }
+private protocol FfiConverterPrimitive: FfiConverter where FfiType == SwiftType {}
 
 extension FfiConverterPrimitive {
-#if swift(>=5.8)
-    @_documentation(visibility: private)
-#endif
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
     public static func lift(_ value: FfiType) throws -> SwiftType {
         return value
     }
 
-#if swift(>=5.8)
-    @_documentation(visibility: private)
-#endif
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
     public static func lower(_ value: SwiftType) -> FfiType {
         return value
     }
@@ -190,12 +190,12 @@ extension FfiConverterPrimitive {
 
 // Types conforming to `FfiConverterRustBuffer` lift and lower into a `RustBuffer`.
 // Used for complex types where it's hard to write a custom lift/lower.
-fileprivate protocol FfiConverterRustBuffer: FfiConverter where FfiType == RustBuffer {}
+private protocol FfiConverterRustBuffer: FfiConverter where FfiType == RustBuffer {}
 
 extension FfiConverterRustBuffer {
-#if swift(>=5.8)
-    @_documentation(visibility: private)
-#endif
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
     public static func lift(_ buf: RustBuffer) throws -> SwiftType {
         var reader = createReader(data: Data(rustBuffer: buf))
         let value = try read(from: &reader)
@@ -206,18 +206,19 @@ extension FfiConverterRustBuffer {
         return value
     }
 
-#if swift(>=5.8)
-    @_documentation(visibility: private)
-#endif
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
     public static func lower(_ value: SwiftType) -> RustBuffer {
-          var writer = createWriter()
-          write(value, into: &writer)
-          return RustBuffer(bytes: writer)
+        var writer = createWriter()
+        write(value, into: &writer)
+        return RustBuffer(bytes: writer)
     }
 }
+
 // An error type for FFI errors. These errors occur at the UniFFI level, not
 // the library level.
-fileprivate enum UniffiInternalError: LocalizedError {
+private enum UniffiInternalError: LocalizedError {
     case bufferOverflow
     case incompleteData
     case unexpectedOptionalTag
@@ -243,24 +244,24 @@ fileprivate enum UniffiInternalError: LocalizedError {
     }
 }
 
-fileprivate extension NSLock {
+private extension NSLock {
     func withLock<T>(f: () throws -> T) rethrows -> T {
-        self.lock()
+        lock()
         defer { self.unlock() }
         return try f()
     }
 }
 
-fileprivate let CALL_SUCCESS: Int8 = 0
-fileprivate let CALL_ERROR: Int8 = 1
-fileprivate let CALL_UNEXPECTED_ERROR: Int8 = 2
-fileprivate let CALL_CANCELLED: Int8 = 3
+private let CALL_SUCCESS: Int8 = 0
+private let CALL_ERROR: Int8 = 1
+private let CALL_UNEXPECTED_ERROR: Int8 = 2
+private let CALL_CANCELLED: Int8 = 3
 
-fileprivate extension RustCallStatus {
+private extension RustCallStatus {
     init() {
         self.init(
             code: CALL_SUCCESS,
-            errorBuf: RustBuffer.init(
+            errorBuf: RustBuffer(
                 capacity: 0,
                 len: 0,
                 data: nil
@@ -276,7 +277,8 @@ private func rustCall<T>(_ callback: (UnsafeMutablePointer<RustCallStatus>) -> T
 
 private func rustCallWithError<T, E: Swift.Error>(
     _ errorHandler: @escaping (RustBuffer) throws -> E,
-    _ callback: (UnsafeMutablePointer<RustCallStatus>) -> T) throws -> T {
+    _ callback: (UnsafeMutablePointer<RustCallStatus>) -> T
+) throws -> T {
     try makeRustCall(callback, errorHandler: errorHandler)
 }
 
@@ -285,7 +287,7 @@ private func makeRustCall<T, E: Swift.Error>(
     errorHandler: ((RustBuffer) throws -> E)?
 ) throws -> T {
     uniffiEnsureInitialized()
-    var callStatus = RustCallStatus.init()
+    var callStatus = RustCallStatus()
     let returnedVal = callback(&callStatus)
     try uniffiCheckCallStatus(callStatus: callStatus, errorHandler: errorHandler)
     return returnedVal
@@ -296,44 +298,44 @@ private func uniffiCheckCallStatus<E: Swift.Error>(
     errorHandler: ((RustBuffer) throws -> E)?
 ) throws {
     switch callStatus.code {
-        case CALL_SUCCESS:
-            return
+    case CALL_SUCCESS:
+        return
 
-        case CALL_ERROR:
-            if let errorHandler = errorHandler {
-                throw try errorHandler(callStatus.errorBuf)
-            } else {
-                callStatus.errorBuf.deallocate()
-                throw UniffiInternalError.unexpectedRustCallError
-            }
+    case CALL_ERROR:
+        if let errorHandler = errorHandler {
+            throw try errorHandler(callStatus.errorBuf)
+        } else {
+            callStatus.errorBuf.deallocate()
+            throw UniffiInternalError.unexpectedRustCallError
+        }
 
-        case CALL_UNEXPECTED_ERROR:
-            // When the rust code sees a panic, it tries to construct a RustBuffer
-            // with the message.  But if that code panics, then it just sends back
-            // an empty buffer.
-            if callStatus.errorBuf.len > 0 {
-                throw UniffiInternalError.rustPanic(try FfiConverterString.lift(callStatus.errorBuf))
-            } else {
-                callStatus.errorBuf.deallocate()
-                throw UniffiInternalError.rustPanic("Rust panic")
-            }
+    case CALL_UNEXPECTED_ERROR:
+        // When the rust code sees a panic, it tries to construct a RustBuffer
+        // with the message.  But if that code panics, then it just sends back
+        // an empty buffer.
+        if callStatus.errorBuf.len > 0 {
+            throw try UniffiInternalError.rustPanic(FfiConverterString.lift(callStatus.errorBuf))
+        } else {
+            callStatus.errorBuf.deallocate()
+            throw UniffiInternalError.rustPanic("Rust panic")
+        }
 
-        case CALL_CANCELLED:
-            fatalError("Cancellation not supported yet")
+    case CALL_CANCELLED:
+        fatalError("Cancellation not supported yet")
 
-        default:
-            throw UniffiInternalError.unexpectedRustCallStatusCode
+    default:
+        throw UniffiInternalError.unexpectedRustCallStatusCode
     }
 }
 
 private func uniffiTraitInterfaceCall<T>(
     callStatus: UnsafeMutablePointer<RustCallStatus>,
     makeCall: () throws -> T,
-    writeReturn: (T) -> ()
+    writeReturn: (T) -> Void
 ) {
     do {
         try writeReturn(makeCall())
-    } catch let error {
+    } catch {
         callStatus.pointee.code = CALL_UNEXPECTED_ERROR
         callStatus.pointee.errorBuf = FfiConverterString.lower(String(describing: error))
     }
@@ -342,7 +344,7 @@ private func uniffiTraitInterfaceCall<T>(
 private func uniffiTraitInterfaceCallWithError<T, E>(
     callStatus: UnsafeMutablePointer<RustCallStatus>,
     makeCall: () throws -> T,
-    writeReturn: (T) -> (),
+    writeReturn: (T) -> Void,
     lowerError: (E) -> RustBuffer
 ) {
     do {
@@ -355,7 +357,8 @@ private func uniffiTraitInterfaceCallWithError<T, E>(
         callStatus.pointee.errorBuf = FfiConverterString.lower(String(describing: error))
     }
 }
-fileprivate class UniffiHandleMap<T> {
+
+private class UniffiHandleMap<T> {
     private var map: [UInt64: T] = [:]
     private let lock = NSLock()
     private var currentHandle: UInt64 = 1
@@ -369,7 +372,7 @@ fileprivate class UniffiHandleMap<T> {
         }
     }
 
-     func get(handle: UInt64) throws -> T {
+    func get(handle: UInt64) throws -> T {
         try lock.withLock {
             guard let obj = map[handle] else {
                 throw UniffiInternalError.unexpectedStaleHandle
@@ -389,20 +392,16 @@ fileprivate class UniffiHandleMap<T> {
     }
 
     var count: Int {
-        get {
-            map.count
-        }
+        map.count
     }
 }
 
-
 // Public interface members begin here.
 
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
-fileprivate struct FfiConverterInt32: FfiConverterPrimitive {
+private struct FfiConverterInt32: FfiConverterPrimitive {
     typealias FfiType = Int32
     typealias SwiftType = Int32
 
@@ -416,9 +415,9 @@ fileprivate struct FfiConverterInt32: FfiConverterPrimitive {
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
-fileprivate struct FfiConverterInt64: FfiConverterPrimitive {
+private struct FfiConverterInt64: FfiConverterPrimitive {
     typealias FfiType = Int64
     typealias SwiftType = Int64
 
@@ -432,9 +431,9 @@ fileprivate struct FfiConverterInt64: FfiConverterPrimitive {
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
-fileprivate struct FfiConverterBool : FfiConverter {
+private struct FfiConverterBool: FfiConverter {
     typealias FfiType = Int8
     typealias SwiftType = Bool
 
@@ -456,9 +455,9 @@ fileprivate struct FfiConverterBool : FfiConverter {
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
-fileprivate struct FfiConverterString: FfiConverter {
+private struct FfiConverterString: FfiConverter {
     typealias SwiftType = String
     typealias FfiType = RustBuffer
 
@@ -486,7 +485,7 @@ fileprivate struct FfiConverterString: FfiConverter {
 
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> String {
         let len: Int32 = try readInt(&buf)
-        return String(bytes: try readBytes(&buf, count: Int(len)), encoding: String.Encoding.utf8)!
+        return try String(bytes: readBytes(&buf, count: Int(len)), encoding: String.Encoding.utf8)!
     }
 
     public static func write(_ value: String, into buf: inout [UInt8]) {
@@ -497,14 +496,14 @@ fileprivate struct FfiConverterString: FfiConverter {
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
-fileprivate struct FfiConverterData: FfiConverterRustBuffer {
+private struct FfiConverterData: FfiConverterRustBuffer {
     typealias SwiftType = Data
 
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> Data {
         let len: Int32 = try readInt(&buf)
-        return Data(try readBytes(&buf, count: Int(len)))
+        return try Data(readBytes(&buf, count: Int(len)))
     }
 
     public static func write(_ value: Data, into buf: inout [UInt8]) {
@@ -514,31 +513,27 @@ fileprivate struct FfiConverterData: FfiConverterRustBuffer {
     }
 }
 
+public protocol AskarCryptoProtocol: AnyObject {
+    func boxOpen(receiverKey: AskarLocalKey, senderKey: AskarLocalKey, message: Data, nonce: Data) throws -> Data
 
+    func boxSeal(receiverKey: AskarLocalKey, message: Data) throws -> Data
 
+    func boxSealOpen(receiverKey: AskarLocalKey, ciphertext: Data) throws -> Data
 
-public protocol AskarCryptoProtocol : AnyObject {
-    
-    func boxOpen(receiverKey: AskarLocalKey, senderKey: AskarLocalKey, message: Data, nonce: Data) throws  -> Data
-    
-    func boxSeal(receiverKey: AskarLocalKey, message: Data) throws  -> Data
-    
-    func boxSealOpen(receiverKey: AskarLocalKey, ciphertext: Data) throws  -> Data
-    
-    func cryptoBox(receiverKey: AskarLocalKey, senderKey: AskarLocalKey, message: Data, nonce: Data) throws  -> Data
-    
-    func randomNonce() throws  -> Data
-    
+    func cryptoBox(receiverKey: AskarLocalKey, senderKey: AskarLocalKey, message: Data, nonce: Data) throws -> Data
+
+    func randomNonce() throws -> Data
 }
 
 open class AskarCrypto:
-    AskarCryptoProtocol {
+    AskarCryptoProtocol
+{
     fileprivate let pointer: UnsafeMutableRawPointer!
 
     /// Used to instantiate a [FFIObject] without an actual pointer, for fakes in tests, mostly.
-#if swift(>=5.8)
-    @_documentation(visibility: private)
-#endif
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
     public struct NoPointer {
         public init() {}
     }
@@ -546,7 +541,7 @@ open class AskarCrypto:
     // TODO: We'd like this to be `private` but for Swifty reasons,
     // we can't implement `FfiConverter` without making this `required` and we can't
     // make it `required` without making it `public`.
-    required public init(unsafeFromRawPointer pointer: UnsafeMutableRawPointer) {
+    public required init(unsafeFromRawPointer pointer: UnsafeMutableRawPointer) {
         self.pointer = pointer
     }
 
@@ -555,27 +550,28 @@ open class AskarCrypto:
     //
     // - Warning:
     //     Any object instantiated with this constructor cannot be passed to an actual Rust-backed object. Since there isn't a backing [Pointer] the FFI lower functions will crash.
-#if swift(>=5.8)
-    @_documentation(visibility: private)
-#endif
-    public init(noPointer: NoPointer) {
-        self.pointer = nil
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
+    public init(noPointer _: NoPointer) {
+        pointer = nil
     }
 
-#if swift(>=5.8)
-    @_documentation(visibility: private)
-#endif
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
     public func uniffiClonePointer() -> UnsafeMutableRawPointer {
         return try! rustCall { uniffi_askar_uniffi_fn_clone_askarcrypto(self.pointer, $0) }
     }
-public convenience init() {
-    let pointer =
-        try! rustCall() {
-    uniffi_askar_uniffi_fn_constructor_askarcrypto_new($0
-    )
-}
-    self.init(unsafeFromRawPointer: pointer)
-}
+
+    public convenience init() {
+        let pointer =
+            try! rustCall {
+                uniffi_askar_uniffi_fn_constructor_askarcrypto_new($0
+                )
+            }
+        self.init(unsafeFromRawPointer: pointer)
+    }
 
     deinit {
         guard let pointer = pointer else {
@@ -585,64 +581,53 @@ public convenience init() {
         try! rustCall { uniffi_askar_uniffi_fn_free_askarcrypto(pointer, $0) }
     }
 
-    
+    open func boxOpen(receiverKey: AskarLocalKey, senderKey: AskarLocalKey, message: Data, nonce: Data) throws -> Data {
+        return try FfiConverterData.lift(rustCallWithError(FfiConverterTypeErrorCode.lift) {
+            uniffi_askar_uniffi_fn_method_askarcrypto_box_open(self.uniffiClonePointer(),
+                                                               FfiConverterTypeAskarLocalKey.lower(receiverKey),
+                                                               FfiConverterTypeAskarLocalKey.lower(senderKey),
+                                                               FfiConverterData.lower(message),
+                                                               FfiConverterData.lower(nonce), $0)
+        })
+    }
 
-    
-open func boxOpen(receiverKey: AskarLocalKey, senderKey: AskarLocalKey, message: Data, nonce: Data)throws  -> Data {
-    return try  FfiConverterData.lift(try rustCallWithError(FfiConverterTypeErrorCode.lift) {
-    uniffi_askar_uniffi_fn_method_askarcrypto_box_open(self.uniffiClonePointer(),
-        FfiConverterTypeAskarLocalKey.lower(receiverKey),
-        FfiConverterTypeAskarLocalKey.lower(senderKey),
-        FfiConverterData.lower(message),
-        FfiConverterData.lower(nonce),$0
-    )
-})
-}
-    
-open func boxSeal(receiverKey: AskarLocalKey, message: Data)throws  -> Data {
-    return try  FfiConverterData.lift(try rustCallWithError(FfiConverterTypeErrorCode.lift) {
-    uniffi_askar_uniffi_fn_method_askarcrypto_box_seal(self.uniffiClonePointer(),
-        FfiConverterTypeAskarLocalKey.lower(receiverKey),
-        FfiConverterData.lower(message),$0
-    )
-})
-}
-    
-open func boxSealOpen(receiverKey: AskarLocalKey, ciphertext: Data)throws  -> Data {
-    return try  FfiConverterData.lift(try rustCallWithError(FfiConverterTypeErrorCode.lift) {
-    uniffi_askar_uniffi_fn_method_askarcrypto_box_seal_open(self.uniffiClonePointer(),
-        FfiConverterTypeAskarLocalKey.lower(receiverKey),
-        FfiConverterData.lower(ciphertext),$0
-    )
-})
-}
-    
-open func cryptoBox(receiverKey: AskarLocalKey, senderKey: AskarLocalKey, message: Data, nonce: Data)throws  -> Data {
-    return try  FfiConverterData.lift(try rustCallWithError(FfiConverterTypeErrorCode.lift) {
-    uniffi_askar_uniffi_fn_method_askarcrypto_crypto_box(self.uniffiClonePointer(),
-        FfiConverterTypeAskarLocalKey.lower(receiverKey),
-        FfiConverterTypeAskarLocalKey.lower(senderKey),
-        FfiConverterData.lower(message),
-        FfiConverterData.lower(nonce),$0
-    )
-})
-}
-    
-open func randomNonce()throws  -> Data {
-    return try  FfiConverterData.lift(try rustCallWithError(FfiConverterTypeErrorCode.lift) {
-    uniffi_askar_uniffi_fn_method_askarcrypto_random_nonce(self.uniffiClonePointer(),$0
-    )
-})
-}
-    
+    open func boxSeal(receiverKey: AskarLocalKey, message: Data) throws -> Data {
+        return try FfiConverterData.lift(rustCallWithError(FfiConverterTypeErrorCode.lift) {
+            uniffi_askar_uniffi_fn_method_askarcrypto_box_seal(self.uniffiClonePointer(),
+                                                               FfiConverterTypeAskarLocalKey.lower(receiverKey),
+                                                               FfiConverterData.lower(message), $0)
+        })
+    }
 
+    open func boxSealOpen(receiverKey: AskarLocalKey, ciphertext: Data) throws -> Data {
+        return try FfiConverterData.lift(rustCallWithError(FfiConverterTypeErrorCode.lift) {
+            uniffi_askar_uniffi_fn_method_askarcrypto_box_seal_open(self.uniffiClonePointer(),
+                                                                    FfiConverterTypeAskarLocalKey.lower(receiverKey),
+                                                                    FfiConverterData.lower(ciphertext), $0)
+        })
+    }
+
+    open func cryptoBox(receiverKey: AskarLocalKey, senderKey: AskarLocalKey, message: Data, nonce: Data) throws -> Data {
+        return try FfiConverterData.lift(rustCallWithError(FfiConverterTypeErrorCode.lift) {
+            uniffi_askar_uniffi_fn_method_askarcrypto_crypto_box(self.uniffiClonePointer(),
+                                                                 FfiConverterTypeAskarLocalKey.lower(receiverKey),
+                                                                 FfiConverterTypeAskarLocalKey.lower(senderKey),
+                                                                 FfiConverterData.lower(message),
+                                                                 FfiConverterData.lower(nonce), $0)
+        })
+    }
+
+    open func randomNonce() throws -> Data {
+        return try FfiConverterData.lift(rustCallWithError(FfiConverterTypeErrorCode.lift) {
+            uniffi_askar_uniffi_fn_method_askarcrypto_random_nonce(self.uniffiClonePointer(), $0)
+        })
+    }
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public struct FfiConverterTypeAskarCrypto: FfiConverter {
-
     typealias FfiType = UnsafeMutableRawPointer
     typealias SwiftType = AskarCrypto
 
@@ -659,7 +644,7 @@ public struct FfiConverterTypeAskarCrypto: FfiConverter {
         // The Rust code won't compile if a pointer won't fit in a UInt64.
         // We have to go via `UInt` because that's the thing that's the size of a pointer.
         let ptr = UnsafeMutableRawPointer(bitPattern: UInt(truncatingIfNeeded: v))
-        if (ptr == nil) {
+        if ptr == nil {
             throw UniffiInternalError.unexpectedNullPointer
         }
         return try lift(ptr!)
@@ -672,48 +657,41 @@ public struct FfiConverterTypeAskarCrypto: FfiConverter {
     }
 }
 
-
-
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeAskarCrypto_lift(_ pointer: UnsafeMutableRawPointer) throws -> AskarCrypto {
     return try FfiConverterTypeAskarCrypto.lift(pointer)
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeAskarCrypto_lower(_ value: AskarCrypto) -> UnsafeMutableRawPointer {
     return FfiConverterTypeAskarCrypto.lower(value)
 }
 
+public protocol AskarEcdh1PuProtocol: AnyObject {
+    func decryptDirect(encAlg: AskarKeyAlg, ephemeralKey: AskarLocalKey, senderKey: AskarLocalKey, receiverKey: AskarLocalKey, ciphertext: Data, tag: Data?, nonce: Data, aad: Data?) throws -> Data
 
+    func deriveKey(encAlg: AskarKeyAlg, ephemeralKey: AskarLocalKey, senderKey: AskarLocalKey, receiverKey: AskarLocalKey, ccTag: Data, receive: Bool) throws -> AskarLocalKey
 
+    func encryptDirect(encAlg: AskarKeyAlg, ephemeralKey: AskarLocalKey, senderKey: AskarLocalKey, receiverKey: AskarLocalKey, message: Data, nonce: Data?, aad: Data?) throws -> EncryptedBuffer
 
-public protocol AskarEcdh1PuProtocol : AnyObject {
-    
-    func decryptDirect(encAlg: AskarKeyAlg, ephemeralKey: AskarLocalKey, senderKey: AskarLocalKey, receiverKey: AskarLocalKey, ciphertext: Data, tag: Data?, nonce: Data, aad: Data?) throws  -> Data
-    
-    func deriveKey(encAlg: AskarKeyAlg, ephemeralKey: AskarLocalKey, senderKey: AskarLocalKey, receiverKey: AskarLocalKey, ccTag: Data, receive: Bool) throws  -> AskarLocalKey
-    
-    func encryptDirect(encAlg: AskarKeyAlg, ephemeralKey: AskarLocalKey, senderKey: AskarLocalKey, receiverKey: AskarLocalKey, message: Data, nonce: Data?, aad: Data?) throws  -> EncryptedBuffer
-    
-    func receiverUnwrapKey(wrapAlg: AskarKeyAlg, encAlg: AskarKeyAlg, ephemeralKey: AskarLocalKey, senderKey: AskarLocalKey, receiverKey: AskarLocalKey, ciphertext: Data, ccTag: Data, nonce: Data?, tag: Data?) throws  -> AskarLocalKey
-    
-    func senderWrapKey(wrapAlg: AskarKeyAlg, ephemeralKey: AskarLocalKey, senderKey: AskarLocalKey, receiverKey: AskarLocalKey, cek: AskarLocalKey, ccTag: Data) throws  -> EncryptedBuffer
-    
+    func receiverUnwrapKey(wrapAlg: AskarKeyAlg, encAlg: AskarKeyAlg, ephemeralKey: AskarLocalKey, senderKey: AskarLocalKey, receiverKey: AskarLocalKey, ciphertext: Data, ccTag: Data, nonce: Data?, tag: Data?) throws -> AskarLocalKey
+
+    func senderWrapKey(wrapAlg: AskarKeyAlg, ephemeralKey: AskarLocalKey, senderKey: AskarLocalKey, receiverKey: AskarLocalKey, cek: AskarLocalKey, ccTag: Data) throws -> EncryptedBuffer
 }
 
 open class AskarEcdh1Pu:
-    AskarEcdh1PuProtocol {
+    AskarEcdh1PuProtocol
+{
     fileprivate let pointer: UnsafeMutableRawPointer!
 
     /// Used to instantiate a [FFIObject] without an actual pointer, for fakes in tests, mostly.
-#if swift(>=5.8)
-    @_documentation(visibility: private)
-#endif
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
     public struct NoPointer {
         public init() {}
     }
@@ -721,7 +699,7 @@ open class AskarEcdh1Pu:
     // TODO: We'd like this to be `private` but for Swifty reasons,
     // we can't implement `FfiConverter` without making this `required` and we can't
     // make it `required` without making it `public`.
-    required public init(unsafeFromRawPointer pointer: UnsafeMutableRawPointer) {
+    public required init(unsafeFromRawPointer pointer: UnsafeMutableRawPointer) {
         self.pointer = pointer
     }
 
@@ -730,30 +708,31 @@ open class AskarEcdh1Pu:
     //
     // - Warning:
     //     Any object instantiated with this constructor cannot be passed to an actual Rust-backed object. Since there isn't a backing [Pointer] the FFI lower functions will crash.
-#if swift(>=5.8)
-    @_documentation(visibility: private)
-#endif
-    public init(noPointer: NoPointer) {
-        self.pointer = nil
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
+    public init(noPointer _: NoPointer) {
+        pointer = nil
     }
 
-#if swift(>=5.8)
-    @_documentation(visibility: private)
-#endif
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
     public func uniffiClonePointer() -> UnsafeMutableRawPointer {
         return try! rustCall { uniffi_askar_uniffi_fn_clone_askarecdh1pu(self.pointer, $0) }
     }
-public convenience init(algId: String, apu: String, apv: String) {
-    let pointer =
-        try! rustCall() {
-    uniffi_askar_uniffi_fn_constructor_askarecdh1pu_new(
-        FfiConverterString.lower(algId),
-        FfiConverterString.lower(apu),
-        FfiConverterString.lower(apv),$0
-    )
-}
-    self.init(unsafeFromRawPointer: pointer)
-}
+
+    public convenience init(algId: String, apu: String, apv: String) {
+        let pointer =
+            try! rustCall {
+                uniffi_askar_uniffi_fn_constructor_askarecdh1pu_new(
+                    FfiConverterString.lower(algId),
+                    FfiConverterString.lower(apu),
+                    FfiConverterString.lower(apv), $0
+                )
+            }
+        self.init(unsafeFromRawPointer: pointer)
+    }
 
     deinit {
         guard let pointer = pointer else {
@@ -763,88 +742,77 @@ public convenience init(algId: String, apu: String, apv: String) {
         try! rustCall { uniffi_askar_uniffi_fn_free_askarecdh1pu(pointer, $0) }
     }
 
-    
+    open func decryptDirect(encAlg: AskarKeyAlg, ephemeralKey: AskarLocalKey, senderKey: AskarLocalKey, receiverKey: AskarLocalKey, ciphertext: Data, tag: Data?, nonce: Data, aad: Data?) throws -> Data {
+        return try FfiConverterData.lift(rustCallWithError(FfiConverterTypeErrorCode.lift) {
+            uniffi_askar_uniffi_fn_method_askarecdh1pu_decrypt_direct(self.uniffiClonePointer(),
+                                                                      FfiConverterTypeAskarKeyAlg.lower(encAlg),
+                                                                      FfiConverterTypeAskarLocalKey.lower(ephemeralKey),
+                                                                      FfiConverterTypeAskarLocalKey.lower(senderKey),
+                                                                      FfiConverterTypeAskarLocalKey.lower(receiverKey),
+                                                                      FfiConverterData.lower(ciphertext),
+                                                                      FfiConverterOptionData.lower(tag),
+                                                                      FfiConverterData.lower(nonce),
+                                                                      FfiConverterOptionData.lower(aad), $0)
+        })
+    }
 
-    
-open func decryptDirect(encAlg: AskarKeyAlg, ephemeralKey: AskarLocalKey, senderKey: AskarLocalKey, receiverKey: AskarLocalKey, ciphertext: Data, tag: Data?, nonce: Data, aad: Data?)throws  -> Data {
-    return try  FfiConverterData.lift(try rustCallWithError(FfiConverterTypeErrorCode.lift) {
-    uniffi_askar_uniffi_fn_method_askarecdh1pu_decrypt_direct(self.uniffiClonePointer(),
-        FfiConverterTypeAskarKeyAlg.lower(encAlg),
-        FfiConverterTypeAskarLocalKey.lower(ephemeralKey),
-        FfiConverterTypeAskarLocalKey.lower(senderKey),
-        FfiConverterTypeAskarLocalKey.lower(receiverKey),
-        FfiConverterData.lower(ciphertext),
-        FfiConverterOptionData.lower(tag),
-        FfiConverterData.lower(nonce),
-        FfiConverterOptionData.lower(aad),$0
-    )
-})
-}
-    
-open func deriveKey(encAlg: AskarKeyAlg, ephemeralKey: AskarLocalKey, senderKey: AskarLocalKey, receiverKey: AskarLocalKey, ccTag: Data, receive: Bool)throws  -> AskarLocalKey {
-    return try  FfiConverterTypeAskarLocalKey.lift(try rustCallWithError(FfiConverterTypeErrorCode.lift) {
-    uniffi_askar_uniffi_fn_method_askarecdh1pu_derive_key(self.uniffiClonePointer(),
-        FfiConverterTypeAskarKeyAlg.lower(encAlg),
-        FfiConverterTypeAskarLocalKey.lower(ephemeralKey),
-        FfiConverterTypeAskarLocalKey.lower(senderKey),
-        FfiConverterTypeAskarLocalKey.lower(receiverKey),
-        FfiConverterData.lower(ccTag),
-        FfiConverterBool.lower(receive),$0
-    )
-})
-}
-    
-open func encryptDirect(encAlg: AskarKeyAlg, ephemeralKey: AskarLocalKey, senderKey: AskarLocalKey, receiverKey: AskarLocalKey, message: Data, nonce: Data?, aad: Data?)throws  -> EncryptedBuffer {
-    return try  FfiConverterTypeEncryptedBuffer.lift(try rustCallWithError(FfiConverterTypeErrorCode.lift) {
-    uniffi_askar_uniffi_fn_method_askarecdh1pu_encrypt_direct(self.uniffiClonePointer(),
-        FfiConverterTypeAskarKeyAlg.lower(encAlg),
-        FfiConverterTypeAskarLocalKey.lower(ephemeralKey),
-        FfiConverterTypeAskarLocalKey.lower(senderKey),
-        FfiConverterTypeAskarLocalKey.lower(receiverKey),
-        FfiConverterData.lower(message),
-        FfiConverterOptionData.lower(nonce),
-        FfiConverterOptionData.lower(aad),$0
-    )
-})
-}
-    
-open func receiverUnwrapKey(wrapAlg: AskarKeyAlg, encAlg: AskarKeyAlg, ephemeralKey: AskarLocalKey, senderKey: AskarLocalKey, receiverKey: AskarLocalKey, ciphertext: Data, ccTag: Data, nonce: Data?, tag: Data?)throws  -> AskarLocalKey {
-    return try  FfiConverterTypeAskarLocalKey.lift(try rustCallWithError(FfiConverterTypeErrorCode.lift) {
-    uniffi_askar_uniffi_fn_method_askarecdh1pu_receiver_unwrap_key(self.uniffiClonePointer(),
-        FfiConverterTypeAskarKeyAlg.lower(wrapAlg),
-        FfiConverterTypeAskarKeyAlg.lower(encAlg),
-        FfiConverterTypeAskarLocalKey.lower(ephemeralKey),
-        FfiConverterTypeAskarLocalKey.lower(senderKey),
-        FfiConverterTypeAskarLocalKey.lower(receiverKey),
-        FfiConverterData.lower(ciphertext),
-        FfiConverterData.lower(ccTag),
-        FfiConverterOptionData.lower(nonce),
-        FfiConverterOptionData.lower(tag),$0
-    )
-})
-}
-    
-open func senderWrapKey(wrapAlg: AskarKeyAlg, ephemeralKey: AskarLocalKey, senderKey: AskarLocalKey, receiverKey: AskarLocalKey, cek: AskarLocalKey, ccTag: Data)throws  -> EncryptedBuffer {
-    return try  FfiConverterTypeEncryptedBuffer.lift(try rustCallWithError(FfiConverterTypeErrorCode.lift) {
-    uniffi_askar_uniffi_fn_method_askarecdh1pu_sender_wrap_key(self.uniffiClonePointer(),
-        FfiConverterTypeAskarKeyAlg.lower(wrapAlg),
-        FfiConverterTypeAskarLocalKey.lower(ephemeralKey),
-        FfiConverterTypeAskarLocalKey.lower(senderKey),
-        FfiConverterTypeAskarLocalKey.lower(receiverKey),
-        FfiConverterTypeAskarLocalKey.lower(cek),
-        FfiConverterData.lower(ccTag),$0
-    )
-})
-}
-    
+    open func deriveKey(encAlg: AskarKeyAlg, ephemeralKey: AskarLocalKey, senderKey: AskarLocalKey, receiverKey: AskarLocalKey, ccTag: Data, receive: Bool) throws -> AskarLocalKey {
+        return try FfiConverterTypeAskarLocalKey.lift(rustCallWithError(FfiConverterTypeErrorCode.lift) {
+            uniffi_askar_uniffi_fn_method_askarecdh1pu_derive_key(self.uniffiClonePointer(),
+                                                                  FfiConverterTypeAskarKeyAlg.lower(encAlg),
+                                                                  FfiConverterTypeAskarLocalKey.lower(ephemeralKey),
+                                                                  FfiConverterTypeAskarLocalKey.lower(senderKey),
+                                                                  FfiConverterTypeAskarLocalKey.lower(receiverKey),
+                                                                  FfiConverterData.lower(ccTag),
+                                                                  FfiConverterBool.lower(receive), $0)
+        })
+    }
 
+    open func encryptDirect(encAlg: AskarKeyAlg, ephemeralKey: AskarLocalKey, senderKey: AskarLocalKey, receiverKey: AskarLocalKey, message: Data, nonce: Data?, aad: Data?) throws -> EncryptedBuffer {
+        return try FfiConverterTypeEncryptedBuffer.lift(rustCallWithError(FfiConverterTypeErrorCode.lift) {
+            uniffi_askar_uniffi_fn_method_askarecdh1pu_encrypt_direct(self.uniffiClonePointer(),
+                                                                      FfiConverterTypeAskarKeyAlg.lower(encAlg),
+                                                                      FfiConverterTypeAskarLocalKey.lower(ephemeralKey),
+                                                                      FfiConverterTypeAskarLocalKey.lower(senderKey),
+                                                                      FfiConverterTypeAskarLocalKey.lower(receiverKey),
+                                                                      FfiConverterData.lower(message),
+                                                                      FfiConverterOptionData.lower(nonce),
+                                                                      FfiConverterOptionData.lower(aad), $0)
+        })
+    }
+
+    open func receiverUnwrapKey(wrapAlg: AskarKeyAlg, encAlg: AskarKeyAlg, ephemeralKey: AskarLocalKey, senderKey: AskarLocalKey, receiverKey: AskarLocalKey, ciphertext: Data, ccTag: Data, nonce: Data?, tag: Data?) throws -> AskarLocalKey {
+        return try FfiConverterTypeAskarLocalKey.lift(rustCallWithError(FfiConverterTypeErrorCode.lift) {
+            uniffi_askar_uniffi_fn_method_askarecdh1pu_receiver_unwrap_key(self.uniffiClonePointer(),
+                                                                           FfiConverterTypeAskarKeyAlg.lower(wrapAlg),
+                                                                           FfiConverterTypeAskarKeyAlg.lower(encAlg),
+                                                                           FfiConverterTypeAskarLocalKey.lower(ephemeralKey),
+                                                                           FfiConverterTypeAskarLocalKey.lower(senderKey),
+                                                                           FfiConverterTypeAskarLocalKey.lower(receiverKey),
+                                                                           FfiConverterData.lower(ciphertext),
+                                                                           FfiConverterData.lower(ccTag),
+                                                                           FfiConverterOptionData.lower(nonce),
+                                                                           FfiConverterOptionData.lower(tag), $0)
+        })
+    }
+
+    open func senderWrapKey(wrapAlg: AskarKeyAlg, ephemeralKey: AskarLocalKey, senderKey: AskarLocalKey, receiverKey: AskarLocalKey, cek: AskarLocalKey, ccTag: Data) throws -> EncryptedBuffer {
+        return try FfiConverterTypeEncryptedBuffer.lift(rustCallWithError(FfiConverterTypeErrorCode.lift) {
+            uniffi_askar_uniffi_fn_method_askarecdh1pu_sender_wrap_key(self.uniffiClonePointer(),
+                                                                       FfiConverterTypeAskarKeyAlg.lower(wrapAlg),
+                                                                       FfiConverterTypeAskarLocalKey.lower(ephemeralKey),
+                                                                       FfiConverterTypeAskarLocalKey.lower(senderKey),
+                                                                       FfiConverterTypeAskarLocalKey.lower(receiverKey),
+                                                                       FfiConverterTypeAskarLocalKey.lower(cek),
+                                                                       FfiConverterData.lower(ccTag), $0)
+        })
+    }
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public struct FfiConverterTypeAskarEcdh1PU: FfiConverter {
-
     typealias FfiType = UnsafeMutableRawPointer
     typealias SwiftType = AskarEcdh1Pu
 
@@ -861,7 +829,7 @@ public struct FfiConverterTypeAskarEcdh1PU: FfiConverter {
         // The Rust code won't compile if a pointer won't fit in a UInt64.
         // We have to go via `UInt` because that's the thing that's the size of a pointer.
         let ptr = UnsafeMutableRawPointer(bitPattern: UInt(truncatingIfNeeded: v))
-        if (ptr == nil) {
+        if ptr == nil {
             throw UniffiInternalError.unexpectedNullPointer
         }
         return try lift(ptr!)
@@ -874,48 +842,41 @@ public struct FfiConverterTypeAskarEcdh1PU: FfiConverter {
     }
 }
 
-
-
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeAskarEcdh1PU_lift(_ pointer: UnsafeMutableRawPointer) throws -> AskarEcdh1Pu {
     return try FfiConverterTypeAskarEcdh1PU.lift(pointer)
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeAskarEcdh1PU_lower(_ value: AskarEcdh1Pu) -> UnsafeMutableRawPointer {
     return FfiConverterTypeAskarEcdh1PU.lower(value)
 }
 
+public protocol AskarEcdhEsProtocol: AnyObject {
+    func decryptDirect(encAlg: AskarKeyAlg, ephemeralKey: AskarLocalKey, receiverKey: AskarLocalKey, ciphertext: Data, tag: Data?, nonce: Data, aad: Data?) throws -> Data
 
+    func deriveKey(encAlg: AskarKeyAlg, ephemeralKey: AskarLocalKey, receiverKey: AskarLocalKey, receive: Bool) throws -> AskarLocalKey
 
+    func encryptDirect(encAlg: AskarKeyAlg, ephemeralKey: AskarLocalKey, receiverKey: AskarLocalKey, message: Data, nonce: Data?, aad: Data?) throws -> EncryptedBuffer
 
-public protocol AskarEcdhEsProtocol : AnyObject {
-    
-    func decryptDirect(encAlg: AskarKeyAlg, ephemeralKey: AskarLocalKey, receiverKey: AskarLocalKey, ciphertext: Data, tag: Data?, nonce: Data, aad: Data?) throws  -> Data
-    
-    func deriveKey(encAlg: AskarKeyAlg, ephemeralKey: AskarLocalKey, receiverKey: AskarLocalKey, receive: Bool) throws  -> AskarLocalKey
-    
-    func encryptDirect(encAlg: AskarKeyAlg, ephemeralKey: AskarLocalKey, receiverKey: AskarLocalKey, message: Data, nonce: Data?, aad: Data?) throws  -> EncryptedBuffer
-    
-    func receiverUnwrapKey(wrapAlg: AskarKeyAlg, encAlg: AskarKeyAlg, ephemeralKey: AskarLocalKey, receiverKey: AskarLocalKey, ciphertext: Data, nonce: Data?, tag: Data?) throws  -> AskarLocalKey
-    
-    func senderWrapKey(wrapAlg: AskarKeyAlg, ephemeralKey: AskarLocalKey, receiverKey: AskarLocalKey, cek: AskarLocalKey) throws  -> EncryptedBuffer
-    
+    func receiverUnwrapKey(wrapAlg: AskarKeyAlg, encAlg: AskarKeyAlg, ephemeralKey: AskarLocalKey, receiverKey: AskarLocalKey, ciphertext: Data, nonce: Data?, tag: Data?) throws -> AskarLocalKey
+
+    func senderWrapKey(wrapAlg: AskarKeyAlg, ephemeralKey: AskarLocalKey, receiverKey: AskarLocalKey, cek: AskarLocalKey) throws -> EncryptedBuffer
 }
 
 open class AskarEcdhEs:
-    AskarEcdhEsProtocol {
+    AskarEcdhEsProtocol
+{
     fileprivate let pointer: UnsafeMutableRawPointer!
 
     /// Used to instantiate a [FFIObject] without an actual pointer, for fakes in tests, mostly.
-#if swift(>=5.8)
-    @_documentation(visibility: private)
-#endif
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
     public struct NoPointer {
         public init() {}
     }
@@ -923,7 +884,7 @@ open class AskarEcdhEs:
     // TODO: We'd like this to be `private` but for Swifty reasons,
     // we can't implement `FfiConverter` without making this `required` and we can't
     // make it `required` without making it `public`.
-    required public init(unsafeFromRawPointer pointer: UnsafeMutableRawPointer) {
+    public required init(unsafeFromRawPointer pointer: UnsafeMutableRawPointer) {
         self.pointer = pointer
     }
 
@@ -932,30 +893,31 @@ open class AskarEcdhEs:
     //
     // - Warning:
     //     Any object instantiated with this constructor cannot be passed to an actual Rust-backed object. Since there isn't a backing [Pointer] the FFI lower functions will crash.
-#if swift(>=5.8)
-    @_documentation(visibility: private)
-#endif
-    public init(noPointer: NoPointer) {
-        self.pointer = nil
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
+    public init(noPointer _: NoPointer) {
+        pointer = nil
     }
 
-#if swift(>=5.8)
-    @_documentation(visibility: private)
-#endif
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
     public func uniffiClonePointer() -> UnsafeMutableRawPointer {
         return try! rustCall { uniffi_askar_uniffi_fn_clone_askarecdhes(self.pointer, $0) }
     }
-public convenience init(algId: String, apu: String, apv: String) {
-    let pointer =
-        try! rustCall() {
-    uniffi_askar_uniffi_fn_constructor_askarecdhes_new(
-        FfiConverterString.lower(algId),
-        FfiConverterString.lower(apu),
-        FfiConverterString.lower(apv),$0
-    )
-}
-    self.init(unsafeFromRawPointer: pointer)
-}
+
+    public convenience init(algId: String, apu: String, apv: String) {
+        let pointer =
+            try! rustCall {
+                uniffi_askar_uniffi_fn_constructor_askarecdhes_new(
+                    FfiConverterString.lower(algId),
+                    FfiConverterString.lower(apu),
+                    FfiConverterString.lower(apv), $0
+                )
+            }
+        self.init(unsafeFromRawPointer: pointer)
+    }
 
     deinit {
         guard let pointer = pointer else {
@@ -965,80 +927,69 @@ public convenience init(algId: String, apu: String, apv: String) {
         try! rustCall { uniffi_askar_uniffi_fn_free_askarecdhes(pointer, $0) }
     }
 
-    
+    open func decryptDirect(encAlg: AskarKeyAlg, ephemeralKey: AskarLocalKey, receiverKey: AskarLocalKey, ciphertext: Data, tag: Data?, nonce: Data, aad: Data?) throws -> Data {
+        return try FfiConverterData.lift(rustCallWithError(FfiConverterTypeErrorCode.lift) {
+            uniffi_askar_uniffi_fn_method_askarecdhes_decrypt_direct(self.uniffiClonePointer(),
+                                                                     FfiConverterTypeAskarKeyAlg.lower(encAlg),
+                                                                     FfiConverterTypeAskarLocalKey.lower(ephemeralKey),
+                                                                     FfiConverterTypeAskarLocalKey.lower(receiverKey),
+                                                                     FfiConverterData.lower(ciphertext),
+                                                                     FfiConverterOptionData.lower(tag),
+                                                                     FfiConverterData.lower(nonce),
+                                                                     FfiConverterOptionData.lower(aad), $0)
+        })
+    }
 
-    
-open func decryptDirect(encAlg: AskarKeyAlg, ephemeralKey: AskarLocalKey, receiverKey: AskarLocalKey, ciphertext: Data, tag: Data?, nonce: Data, aad: Data?)throws  -> Data {
-    return try  FfiConverterData.lift(try rustCallWithError(FfiConverterTypeErrorCode.lift) {
-    uniffi_askar_uniffi_fn_method_askarecdhes_decrypt_direct(self.uniffiClonePointer(),
-        FfiConverterTypeAskarKeyAlg.lower(encAlg),
-        FfiConverterTypeAskarLocalKey.lower(ephemeralKey),
-        FfiConverterTypeAskarLocalKey.lower(receiverKey),
-        FfiConverterData.lower(ciphertext),
-        FfiConverterOptionData.lower(tag),
-        FfiConverterData.lower(nonce),
-        FfiConverterOptionData.lower(aad),$0
-    )
-})
-}
-    
-open func deriveKey(encAlg: AskarKeyAlg, ephemeralKey: AskarLocalKey, receiverKey: AskarLocalKey, receive: Bool)throws  -> AskarLocalKey {
-    return try  FfiConverterTypeAskarLocalKey.lift(try rustCallWithError(FfiConverterTypeErrorCode.lift) {
-    uniffi_askar_uniffi_fn_method_askarecdhes_derive_key(self.uniffiClonePointer(),
-        FfiConverterTypeAskarKeyAlg.lower(encAlg),
-        FfiConverterTypeAskarLocalKey.lower(ephemeralKey),
-        FfiConverterTypeAskarLocalKey.lower(receiverKey),
-        FfiConverterBool.lower(receive),$0
-    )
-})
-}
-    
-open func encryptDirect(encAlg: AskarKeyAlg, ephemeralKey: AskarLocalKey, receiverKey: AskarLocalKey, message: Data, nonce: Data?, aad: Data?)throws  -> EncryptedBuffer {
-    return try  FfiConverterTypeEncryptedBuffer.lift(try rustCallWithError(FfiConverterTypeErrorCode.lift) {
-    uniffi_askar_uniffi_fn_method_askarecdhes_encrypt_direct(self.uniffiClonePointer(),
-        FfiConverterTypeAskarKeyAlg.lower(encAlg),
-        FfiConverterTypeAskarLocalKey.lower(ephemeralKey),
-        FfiConverterTypeAskarLocalKey.lower(receiverKey),
-        FfiConverterData.lower(message),
-        FfiConverterOptionData.lower(nonce),
-        FfiConverterOptionData.lower(aad),$0
-    )
-})
-}
-    
-open func receiverUnwrapKey(wrapAlg: AskarKeyAlg, encAlg: AskarKeyAlg, ephemeralKey: AskarLocalKey, receiverKey: AskarLocalKey, ciphertext: Data, nonce: Data?, tag: Data?)throws  -> AskarLocalKey {
-    return try  FfiConverterTypeAskarLocalKey.lift(try rustCallWithError(FfiConverterTypeErrorCode.lift) {
-    uniffi_askar_uniffi_fn_method_askarecdhes_receiver_unwrap_key(self.uniffiClonePointer(),
-        FfiConverterTypeAskarKeyAlg.lower(wrapAlg),
-        FfiConverterTypeAskarKeyAlg.lower(encAlg),
-        FfiConverterTypeAskarLocalKey.lower(ephemeralKey),
-        FfiConverterTypeAskarLocalKey.lower(receiverKey),
-        FfiConverterData.lower(ciphertext),
-        FfiConverterOptionData.lower(nonce),
-        FfiConverterOptionData.lower(tag),$0
-    )
-})
-}
-    
-open func senderWrapKey(wrapAlg: AskarKeyAlg, ephemeralKey: AskarLocalKey, receiverKey: AskarLocalKey, cek: AskarLocalKey)throws  -> EncryptedBuffer {
-    return try  FfiConverterTypeEncryptedBuffer.lift(try rustCallWithError(FfiConverterTypeErrorCode.lift) {
-    uniffi_askar_uniffi_fn_method_askarecdhes_sender_wrap_key(self.uniffiClonePointer(),
-        FfiConverterTypeAskarKeyAlg.lower(wrapAlg),
-        FfiConverterTypeAskarLocalKey.lower(ephemeralKey),
-        FfiConverterTypeAskarLocalKey.lower(receiverKey),
-        FfiConverterTypeAskarLocalKey.lower(cek),$0
-    )
-})
-}
-    
+    open func deriveKey(encAlg: AskarKeyAlg, ephemeralKey: AskarLocalKey, receiverKey: AskarLocalKey, receive: Bool) throws -> AskarLocalKey {
+        return try FfiConverterTypeAskarLocalKey.lift(rustCallWithError(FfiConverterTypeErrorCode.lift) {
+            uniffi_askar_uniffi_fn_method_askarecdhes_derive_key(self.uniffiClonePointer(),
+                                                                 FfiConverterTypeAskarKeyAlg.lower(encAlg),
+                                                                 FfiConverterTypeAskarLocalKey.lower(ephemeralKey),
+                                                                 FfiConverterTypeAskarLocalKey.lower(receiverKey),
+                                                                 FfiConverterBool.lower(receive), $0)
+        })
+    }
 
+    open func encryptDirect(encAlg: AskarKeyAlg, ephemeralKey: AskarLocalKey, receiverKey: AskarLocalKey, message: Data, nonce: Data?, aad: Data?) throws -> EncryptedBuffer {
+        return try FfiConverterTypeEncryptedBuffer.lift(rustCallWithError(FfiConverterTypeErrorCode.lift) {
+            uniffi_askar_uniffi_fn_method_askarecdhes_encrypt_direct(self.uniffiClonePointer(),
+                                                                     FfiConverterTypeAskarKeyAlg.lower(encAlg),
+                                                                     FfiConverterTypeAskarLocalKey.lower(ephemeralKey),
+                                                                     FfiConverterTypeAskarLocalKey.lower(receiverKey),
+                                                                     FfiConverterData.lower(message),
+                                                                     FfiConverterOptionData.lower(nonce),
+                                                                     FfiConverterOptionData.lower(aad), $0)
+        })
+    }
+
+    open func receiverUnwrapKey(wrapAlg: AskarKeyAlg, encAlg: AskarKeyAlg, ephemeralKey: AskarLocalKey, receiverKey: AskarLocalKey, ciphertext: Data, nonce: Data?, tag: Data?) throws -> AskarLocalKey {
+        return try FfiConverterTypeAskarLocalKey.lift(rustCallWithError(FfiConverterTypeErrorCode.lift) {
+            uniffi_askar_uniffi_fn_method_askarecdhes_receiver_unwrap_key(self.uniffiClonePointer(),
+                                                                          FfiConverterTypeAskarKeyAlg.lower(wrapAlg),
+                                                                          FfiConverterTypeAskarKeyAlg.lower(encAlg),
+                                                                          FfiConverterTypeAskarLocalKey.lower(ephemeralKey),
+                                                                          FfiConverterTypeAskarLocalKey.lower(receiverKey),
+                                                                          FfiConverterData.lower(ciphertext),
+                                                                          FfiConverterOptionData.lower(nonce),
+                                                                          FfiConverterOptionData.lower(tag), $0)
+        })
+    }
+
+    open func senderWrapKey(wrapAlg: AskarKeyAlg, ephemeralKey: AskarLocalKey, receiverKey: AskarLocalKey, cek: AskarLocalKey) throws -> EncryptedBuffer {
+        return try FfiConverterTypeEncryptedBuffer.lift(rustCallWithError(FfiConverterTypeErrorCode.lift) {
+            uniffi_askar_uniffi_fn_method_askarecdhes_sender_wrap_key(self.uniffiClonePointer(),
+                                                                      FfiConverterTypeAskarKeyAlg.lower(wrapAlg),
+                                                                      FfiConverterTypeAskarLocalKey.lower(ephemeralKey),
+                                                                      FfiConverterTypeAskarLocalKey.lower(receiverKey),
+                                                                      FfiConverterTypeAskarLocalKey.lower(cek), $0)
+        })
+    }
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public struct FfiConverterTypeAskarEcdhEs: FfiConverter {
-
     typealias FfiType = UnsafeMutableRawPointer
     typealias SwiftType = AskarEcdhEs
 
@@ -1055,7 +1006,7 @@ public struct FfiConverterTypeAskarEcdhEs: FfiConverter {
         // The Rust code won't compile if a pointer won't fit in a UInt64.
         // We have to go via `UInt` because that's the thing that's the size of a pointer.
         let ptr = UnsafeMutableRawPointer(bitPattern: UInt(truncatingIfNeeded: v))
-        if (ptr == nil) {
+        if ptr == nil {
             throw UniffiInternalError.unexpectedNullPointer
         }
         return try lift(ptr!)
@@ -1068,46 +1019,39 @@ public struct FfiConverterTypeAskarEcdhEs: FfiConverter {
     }
 }
 
-
-
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeAskarEcdhEs_lift(_ pointer: UnsafeMutableRawPointer) throws -> AskarEcdhEs {
     return try FfiConverterTypeAskarEcdhEs.lift(pointer)
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeAskarEcdhEs_lower(_ value: AskarEcdhEs) -> UnsafeMutableRawPointer {
     return FfiConverterTypeAskarEcdhEs.lower(value)
 }
 
+public protocol AskarEntryProtocol: AnyObject {
+    func category() -> String
 
+    func name() -> String
 
+    func tags() -> [String: String]
 
-public protocol AskarEntryProtocol : AnyObject {
-    
-    func category()  -> String
-    
-    func name()  -> String
-    
-    func tags()  -> [String: String]
-    
-    func value()  -> Data
-    
+    func value() -> Data
 }
 
 open class AskarEntry:
-    AskarEntryProtocol {
+    AskarEntryProtocol
+{
     fileprivate let pointer: UnsafeMutableRawPointer!
 
     /// Used to instantiate a [FFIObject] without an actual pointer, for fakes in tests, mostly.
-#if swift(>=5.8)
-    @_documentation(visibility: private)
-#endif
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
     public struct NoPointer {
         public init() {}
     }
@@ -1115,7 +1059,7 @@ open class AskarEntry:
     // TODO: We'd like this to be `private` but for Swifty reasons,
     // we can't implement `FfiConverter` without making this `required` and we can't
     // make it `required` without making it `public`.
-    required public init(unsafeFromRawPointer pointer: UnsafeMutableRawPointer) {
+    public required init(unsafeFromRawPointer pointer: UnsafeMutableRawPointer) {
         self.pointer = pointer
     }
 
@@ -1124,19 +1068,20 @@ open class AskarEntry:
     //
     // - Warning:
     //     Any object instantiated with this constructor cannot be passed to an actual Rust-backed object. Since there isn't a backing [Pointer] the FFI lower functions will crash.
-#if swift(>=5.8)
-    @_documentation(visibility: private)
-#endif
-    public init(noPointer: NoPointer) {
-        self.pointer = nil
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
+    public init(noPointer _: NoPointer) {
+        pointer = nil
     }
 
-#if swift(>=5.8)
-    @_documentation(visibility: private)
-#endif
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
     public func uniffiClonePointer() -> UnsafeMutableRawPointer {
         return try! rustCall { uniffi_askar_uniffi_fn_clone_askarentry(self.pointer, $0) }
     }
+
     // No primary constructor declared for this class.
 
     deinit {
@@ -1147,45 +1092,35 @@ open class AskarEntry:
         try! rustCall { uniffi_askar_uniffi_fn_free_askarentry(pointer, $0) }
     }
 
-    
+    open func category() -> String {
+        return try! FfiConverterString.lift(try! rustCall {
+            uniffi_askar_uniffi_fn_method_askarentry_category(self.uniffiClonePointer(), $0)
+        })
+    }
 
-    
-open func category() -> String {
-    return try!  FfiConverterString.lift(try! rustCall() {
-    uniffi_askar_uniffi_fn_method_askarentry_category(self.uniffiClonePointer(),$0
-    )
-})
-}
-    
-open func name() -> String {
-    return try!  FfiConverterString.lift(try! rustCall() {
-    uniffi_askar_uniffi_fn_method_askarentry_name(self.uniffiClonePointer(),$0
-    )
-})
-}
-    
-open func tags() -> [String: String] {
-    return try!  FfiConverterDictionaryStringString.lift(try! rustCall() {
-    uniffi_askar_uniffi_fn_method_askarentry_tags(self.uniffiClonePointer(),$0
-    )
-})
-}
-    
-open func value() -> Data {
-    return try!  FfiConverterData.lift(try! rustCall() {
-    uniffi_askar_uniffi_fn_method_askarentry_value(self.uniffiClonePointer(),$0
-    )
-})
-}
-    
+    open func name() -> String {
+        return try! FfiConverterString.lift(try! rustCall {
+            uniffi_askar_uniffi_fn_method_askarentry_name(self.uniffiClonePointer(), $0)
+        })
+    }
 
+    open func tags() -> [String: String] {
+        return try! FfiConverterDictionaryStringString.lift(try! rustCall {
+            uniffi_askar_uniffi_fn_method_askarentry_tags(self.uniffiClonePointer(), $0)
+        })
+    }
+
+    open func value() -> Data {
+        return try! FfiConverterData.lift(try! rustCall {
+            uniffi_askar_uniffi_fn_method_askarentry_value(self.uniffiClonePointer(), $0)
+        })
+    }
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public struct FfiConverterTypeAskarEntry: FfiConverter {
-
     typealias FfiType = UnsafeMutableRawPointer
     typealias SwiftType = AskarEntry
 
@@ -1202,7 +1137,7 @@ public struct FfiConverterTypeAskarEntry: FfiConverter {
         // The Rust code won't compile if a pointer won't fit in a UInt64.
         // We have to go via `UInt` because that's the thing that's the size of a pointer.
         let ptr = UnsafeMutableRawPointer(bitPattern: UInt(truncatingIfNeeded: v))
-        if (ptr == nil) {
+        if ptr == nil {
             throw UniffiInternalError.unexpectedNullPointer
         }
         return try lift(ptr!)
@@ -1215,50 +1150,43 @@ public struct FfiConverterTypeAskarEntry: FfiConverter {
     }
 }
 
-
-
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeAskarEntry_lift(_ pointer: UnsafeMutableRawPointer) throws -> AskarEntry {
     return try FfiConverterTypeAskarEntry.lift(pointer)
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeAskarEntry_lower(_ value: AskarEntry) -> UnsafeMutableRawPointer {
     return FfiConverterTypeAskarEntry.lower(value)
 }
 
+public protocol AskarKeyEntryProtocol: AnyObject {
+    func algorithm() -> String?
 
+    func isLocal() -> Bool
 
+    func loadLocalKey() throws -> AskarLocalKey
 
-public protocol AskarKeyEntryProtocol : AnyObject {
-    
-    func algorithm()  -> String?
-    
-    func isLocal()  -> Bool
-    
-    func loadLocalKey() throws  -> AskarLocalKey
-    
-    func metadata()  -> String?
-    
-    func name()  -> String
-    
-    func tags()  -> [String: String]
-    
+    func metadata() -> String?
+
+    func name() -> String
+
+    func tags() -> [String: String]
 }
 
 open class AskarKeyEntry:
-    AskarKeyEntryProtocol {
+    AskarKeyEntryProtocol
+{
     fileprivate let pointer: UnsafeMutableRawPointer!
 
     /// Used to instantiate a [FFIObject] without an actual pointer, for fakes in tests, mostly.
-#if swift(>=5.8)
-    @_documentation(visibility: private)
-#endif
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
     public struct NoPointer {
         public init() {}
     }
@@ -1266,7 +1194,7 @@ open class AskarKeyEntry:
     // TODO: We'd like this to be `private` but for Swifty reasons,
     // we can't implement `FfiConverter` without making this `required` and we can't
     // make it `required` without making it `public`.
-    required public init(unsafeFromRawPointer pointer: UnsafeMutableRawPointer) {
+    public required init(unsafeFromRawPointer pointer: UnsafeMutableRawPointer) {
         self.pointer = pointer
     }
 
@@ -1275,19 +1203,20 @@ open class AskarKeyEntry:
     //
     // - Warning:
     //     Any object instantiated with this constructor cannot be passed to an actual Rust-backed object. Since there isn't a backing [Pointer] the FFI lower functions will crash.
-#if swift(>=5.8)
-    @_documentation(visibility: private)
-#endif
-    public init(noPointer: NoPointer) {
-        self.pointer = nil
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
+    public init(noPointer _: NoPointer) {
+        pointer = nil
     }
 
-#if swift(>=5.8)
-    @_documentation(visibility: private)
-#endif
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
     public func uniffiClonePointer() -> UnsafeMutableRawPointer {
         return try! rustCall { uniffi_askar_uniffi_fn_clone_askarkeyentry(self.pointer, $0) }
     }
+
     // No primary constructor declared for this class.
 
     deinit {
@@ -1298,59 +1227,47 @@ open class AskarKeyEntry:
         try! rustCall { uniffi_askar_uniffi_fn_free_askarkeyentry(pointer, $0) }
     }
 
-    
+    open func algorithm() -> String? {
+        return try! FfiConverterOptionString.lift(try! rustCall {
+            uniffi_askar_uniffi_fn_method_askarkeyentry_algorithm(self.uniffiClonePointer(), $0)
+        })
+    }
 
-    
-open func algorithm() -> String? {
-    return try!  FfiConverterOptionString.lift(try! rustCall() {
-    uniffi_askar_uniffi_fn_method_askarkeyentry_algorithm(self.uniffiClonePointer(),$0
-    )
-})
-}
-    
-open func isLocal() -> Bool {
-    return try!  FfiConverterBool.lift(try! rustCall() {
-    uniffi_askar_uniffi_fn_method_askarkeyentry_is_local(self.uniffiClonePointer(),$0
-    )
-})
-}
-    
-open func loadLocalKey()throws  -> AskarLocalKey {
-    return try  FfiConverterTypeAskarLocalKey.lift(try rustCallWithError(FfiConverterTypeErrorCode.lift) {
-    uniffi_askar_uniffi_fn_method_askarkeyentry_load_local_key(self.uniffiClonePointer(),$0
-    )
-})
-}
-    
-open func metadata() -> String? {
-    return try!  FfiConverterOptionString.lift(try! rustCall() {
-    uniffi_askar_uniffi_fn_method_askarkeyentry_metadata(self.uniffiClonePointer(),$0
-    )
-})
-}
-    
-open func name() -> String {
-    return try!  FfiConverterString.lift(try! rustCall() {
-    uniffi_askar_uniffi_fn_method_askarkeyentry_name(self.uniffiClonePointer(),$0
-    )
-})
-}
-    
-open func tags() -> [String: String] {
-    return try!  FfiConverterDictionaryStringString.lift(try! rustCall() {
-    uniffi_askar_uniffi_fn_method_askarkeyentry_tags(self.uniffiClonePointer(),$0
-    )
-})
-}
-    
+    open func isLocal() -> Bool {
+        return try! FfiConverterBool.lift(try! rustCall {
+            uniffi_askar_uniffi_fn_method_askarkeyentry_is_local(self.uniffiClonePointer(), $0)
+        })
+    }
 
+    open func loadLocalKey() throws -> AskarLocalKey {
+        return try FfiConverterTypeAskarLocalKey.lift(rustCallWithError(FfiConverterTypeErrorCode.lift) {
+            uniffi_askar_uniffi_fn_method_askarkeyentry_load_local_key(self.uniffiClonePointer(), $0)
+        })
+    }
+
+    open func metadata() -> String? {
+        return try! FfiConverterOptionString.lift(try! rustCall {
+            uniffi_askar_uniffi_fn_method_askarkeyentry_metadata(self.uniffiClonePointer(), $0)
+        })
+    }
+
+    open func name() -> String {
+        return try! FfiConverterString.lift(try! rustCall {
+            uniffi_askar_uniffi_fn_method_askarkeyentry_name(self.uniffiClonePointer(), $0)
+        })
+    }
+
+    open func tags() -> [String: String] {
+        return try! FfiConverterDictionaryStringString.lift(try! rustCall {
+            uniffi_askar_uniffi_fn_method_askarkeyentry_tags(self.uniffiClonePointer(), $0)
+        })
+    }
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public struct FfiConverterTypeAskarKeyEntry: FfiConverter {
-
     typealias FfiType = UnsafeMutableRawPointer
     typealias SwiftType = AskarKeyEntry
 
@@ -1367,7 +1284,7 @@ public struct FfiConverterTypeAskarKeyEntry: FfiConverter {
         // The Rust code won't compile if a pointer won't fit in a UInt64.
         // We have to go via `UInt` because that's the thing that's the size of a pointer.
         let ptr = UnsafeMutableRawPointer(bitPattern: UInt(truncatingIfNeeded: v))
-        if (ptr == nil) {
+        if ptr == nil {
             throw UniffiInternalError.unexpectedNullPointer
         }
         return try lift(ptr!)
@@ -1380,74 +1297,67 @@ public struct FfiConverterTypeAskarKeyEntry: FfiConverter {
     }
 }
 
-
-
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeAskarKeyEntry_lift(_ pointer: UnsafeMutableRawPointer) throws -> AskarKeyEntry {
     return try FfiConverterTypeAskarKeyEntry.lift(pointer)
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeAskarKeyEntry_lower(_ value: AskarKeyEntry) -> UnsafeMutableRawPointer {
     return FfiConverterTypeAskarKeyEntry.lower(value)
 }
 
+public protocol AskarLocalKeyProtocol: AnyObject {
+    func aeadDecrypt(ciphertext: Data, tag: Data?, nonce: Data, aad: Data?) throws -> Data
 
+    func aeadEncrypt(message: Data, nonce: Data?, aad: Data?) throws -> EncryptedBuffer
 
+    func aeadPadding(msgLen: Int32) -> Int32
 
-public protocol AskarLocalKeyProtocol : AnyObject {
-    
-    func aeadDecrypt(ciphertext: Data, tag: Data?, nonce: Data, aad: Data?) throws  -> Data
-    
-    func aeadEncrypt(message: Data, nonce: Data?, aad: Data?) throws  -> EncryptedBuffer
-    
-    func aeadPadding(msgLen: Int32)  -> Int32
-    
-    func aeadParams() throws  -> AeadParams
-    
-    func aeadRandomNonce() throws  -> Data
-    
-    func algorithm()  -> AskarKeyAlg
-    
-    func convertKey(alg: AskarKeyAlg) throws  -> AskarLocalKey
-    
-    func signMessage(message: Data, sigType: String?) throws  -> Data
-    
-    func toJwkPublic(alg: AskarKeyAlg?) throws  -> String
-    
-    func toJwkSecret() throws  -> Data
-    
-    func toJwkThumbprint(alg: AskarKeyAlg?) throws  -> String
-    
-    func toJwkThumbprints() throws  -> [String]
-    
-    func toKeyExchange(alg: AskarKeyAlg, pk: AskarLocalKey) throws  -> AskarLocalKey
-    
-    func toPublicBytes() throws  -> Data
-    
-    func toSecretBytes() throws  -> Data
-    
-    func unwrapKey(alg: AskarKeyAlg, ciphertext: Data, tag: Data?, nonce: Data?) throws  -> AskarLocalKey
-    
-    func verifySignature(message: Data, signature: Data, sigType: String?) throws  -> Bool
-    
-    func wrapKey(key: AskarLocalKey, nonce: Data?) throws  -> EncryptedBuffer
-    
+    func aeadParams() throws -> AeadParams
+
+    func aeadRandomNonce() throws -> Data
+
+    func algorithm() -> AskarKeyAlg
+
+    func convertKey(alg: AskarKeyAlg) throws -> AskarLocalKey
+
+    func signMessage(message: Data, sigType: String?) throws -> Data
+
+    func toJwkPublic(alg: AskarKeyAlg?) throws -> String
+
+    func toJwkSecret() throws -> Data
+
+    func toJwkThumbprint(alg: AskarKeyAlg?) throws -> String
+
+    func toJwkThumbprints() throws -> [String]
+
+    func toKeyExchange(alg: AskarKeyAlg, pk: AskarLocalKey) throws -> AskarLocalKey
+
+    func toPublicBytes() throws -> Data
+
+    func toSecretBytes() throws -> Data
+
+    func unwrapKey(alg: AskarKeyAlg, ciphertext: Data, tag: Data?, nonce: Data?) throws -> AskarLocalKey
+
+    func verifySignature(message: Data, signature: Data, sigType: String?) throws -> Bool
+
+    func wrapKey(key: AskarLocalKey, nonce: Data?) throws -> EncryptedBuffer
 }
 
 open class AskarLocalKey:
-    AskarLocalKeyProtocol {
+    AskarLocalKeyProtocol
+{
     fileprivate let pointer: UnsafeMutableRawPointer!
 
     /// Used to instantiate a [FFIObject] without an actual pointer, for fakes in tests, mostly.
-#if swift(>=5.8)
-    @_documentation(visibility: private)
-#endif
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
     public struct NoPointer {
         public init() {}
     }
@@ -1455,7 +1365,7 @@ open class AskarLocalKey:
     // TODO: We'd like this to be `private` but for Swifty reasons,
     // we can't implement `FfiConverter` without making this `required` and we can't
     // make it `required` without making it `public`.
-    required public init(unsafeFromRawPointer pointer: UnsafeMutableRawPointer) {
+    public required init(unsafeFromRawPointer pointer: UnsafeMutableRawPointer) {
         self.pointer = pointer
     }
 
@@ -1464,19 +1374,20 @@ open class AskarLocalKey:
     //
     // - Warning:
     //     Any object instantiated with this constructor cannot be passed to an actual Rust-backed object. Since there isn't a backing [Pointer] the FFI lower functions will crash.
-#if swift(>=5.8)
-    @_documentation(visibility: private)
-#endif
-    public init(noPointer: NoPointer) {
-        self.pointer = nil
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
+    public init(noPointer _: NoPointer) {
+        pointer = nil
     }
 
-#if swift(>=5.8)
-    @_documentation(visibility: private)
-#endif
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
     public func uniffiClonePointer() -> UnsafeMutableRawPointer {
         return try! rustCall { uniffi_askar_uniffi_fn_clone_askarlocalkey(self.pointer, $0) }
     }
+
     // No primary constructor declared for this class.
 
     deinit {
@@ -1487,167 +1398,143 @@ open class AskarLocalKey:
         try! rustCall { uniffi_askar_uniffi_fn_free_askarlocalkey(pointer, $0) }
     }
 
-    
+    open func aeadDecrypt(ciphertext: Data, tag: Data?, nonce: Data, aad: Data?) throws -> Data {
+        return try FfiConverterData.lift(rustCallWithError(FfiConverterTypeErrorCode.lift) {
+            uniffi_askar_uniffi_fn_method_askarlocalkey_aead_decrypt(self.uniffiClonePointer(),
+                                                                     FfiConverterData.lower(ciphertext),
+                                                                     FfiConverterOptionData.lower(tag),
+                                                                     FfiConverterData.lower(nonce),
+                                                                     FfiConverterOptionData.lower(aad), $0)
+        })
+    }
 
-    
-open func aeadDecrypt(ciphertext: Data, tag: Data?, nonce: Data, aad: Data?)throws  -> Data {
-    return try  FfiConverterData.lift(try rustCallWithError(FfiConverterTypeErrorCode.lift) {
-    uniffi_askar_uniffi_fn_method_askarlocalkey_aead_decrypt(self.uniffiClonePointer(),
-        FfiConverterData.lower(ciphertext),
-        FfiConverterOptionData.lower(tag),
-        FfiConverterData.lower(nonce),
-        FfiConverterOptionData.lower(aad),$0
-    )
-})
-}
-    
-open func aeadEncrypt(message: Data, nonce: Data?, aad: Data?)throws  -> EncryptedBuffer {
-    return try  FfiConverterTypeEncryptedBuffer.lift(try rustCallWithError(FfiConverterTypeErrorCode.lift) {
-    uniffi_askar_uniffi_fn_method_askarlocalkey_aead_encrypt(self.uniffiClonePointer(),
-        FfiConverterData.lower(message),
-        FfiConverterOptionData.lower(nonce),
-        FfiConverterOptionData.lower(aad),$0
-    )
-})
-}
-    
-open func aeadPadding(msgLen: Int32) -> Int32 {
-    return try!  FfiConverterInt32.lift(try! rustCall() {
-    uniffi_askar_uniffi_fn_method_askarlocalkey_aead_padding(self.uniffiClonePointer(),
-        FfiConverterInt32.lower(msgLen),$0
-    )
-})
-}
-    
-open func aeadParams()throws  -> AeadParams {
-    return try  FfiConverterTypeAeadParams.lift(try rustCallWithError(FfiConverterTypeErrorCode.lift) {
-    uniffi_askar_uniffi_fn_method_askarlocalkey_aead_params(self.uniffiClonePointer(),$0
-    )
-})
-}
-    
-open func aeadRandomNonce()throws  -> Data {
-    return try  FfiConverterData.lift(try rustCallWithError(FfiConverterTypeErrorCode.lift) {
-    uniffi_askar_uniffi_fn_method_askarlocalkey_aead_random_nonce(self.uniffiClonePointer(),$0
-    )
-})
-}
-    
-open func algorithm() -> AskarKeyAlg {
-    return try!  FfiConverterTypeAskarKeyAlg.lift(try! rustCall() {
-    uniffi_askar_uniffi_fn_method_askarlocalkey_algorithm(self.uniffiClonePointer(),$0
-    )
-})
-}
-    
-open func convertKey(alg: AskarKeyAlg)throws  -> AskarLocalKey {
-    return try  FfiConverterTypeAskarLocalKey.lift(try rustCallWithError(FfiConverterTypeErrorCode.lift) {
-    uniffi_askar_uniffi_fn_method_askarlocalkey_convert_key(self.uniffiClonePointer(),
-        FfiConverterTypeAskarKeyAlg.lower(alg),$0
-    )
-})
-}
-    
-open func signMessage(message: Data, sigType: String?)throws  -> Data {
-    return try  FfiConverterData.lift(try rustCallWithError(FfiConverterTypeErrorCode.lift) {
-    uniffi_askar_uniffi_fn_method_askarlocalkey_sign_message(self.uniffiClonePointer(),
-        FfiConverterData.lower(message),
-        FfiConverterOptionString.lower(sigType),$0
-    )
-})
-}
-    
-open func toJwkPublic(alg: AskarKeyAlg?)throws  -> String {
-    return try  FfiConverterString.lift(try rustCallWithError(FfiConverterTypeErrorCode.lift) {
-    uniffi_askar_uniffi_fn_method_askarlocalkey_to_jwk_public(self.uniffiClonePointer(),
-        FfiConverterOptionTypeAskarKeyAlg.lower(alg),$0
-    )
-})
-}
-    
-open func toJwkSecret()throws  -> Data {
-    return try  FfiConverterData.lift(try rustCallWithError(FfiConverterTypeErrorCode.lift) {
-    uniffi_askar_uniffi_fn_method_askarlocalkey_to_jwk_secret(self.uniffiClonePointer(),$0
-    )
-})
-}
-    
-open func toJwkThumbprint(alg: AskarKeyAlg?)throws  -> String {
-    return try  FfiConverterString.lift(try rustCallWithError(FfiConverterTypeErrorCode.lift) {
-    uniffi_askar_uniffi_fn_method_askarlocalkey_to_jwk_thumbprint(self.uniffiClonePointer(),
-        FfiConverterOptionTypeAskarKeyAlg.lower(alg),$0
-    )
-})
-}
-    
-open func toJwkThumbprints()throws  -> [String] {
-    return try  FfiConverterSequenceString.lift(try rustCallWithError(FfiConverterTypeErrorCode.lift) {
-    uniffi_askar_uniffi_fn_method_askarlocalkey_to_jwk_thumbprints(self.uniffiClonePointer(),$0
-    )
-})
-}
-    
-open func toKeyExchange(alg: AskarKeyAlg, pk: AskarLocalKey)throws  -> AskarLocalKey {
-    return try  FfiConverterTypeAskarLocalKey.lift(try rustCallWithError(FfiConverterTypeErrorCode.lift) {
-    uniffi_askar_uniffi_fn_method_askarlocalkey_to_key_exchange(self.uniffiClonePointer(),
-        FfiConverterTypeAskarKeyAlg.lower(alg),
-        FfiConverterTypeAskarLocalKey.lower(pk),$0
-    )
-})
-}
-    
-open func toPublicBytes()throws  -> Data {
-    return try  FfiConverterData.lift(try rustCallWithError(FfiConverterTypeErrorCode.lift) {
-    uniffi_askar_uniffi_fn_method_askarlocalkey_to_public_bytes(self.uniffiClonePointer(),$0
-    )
-})
-}
-    
-open func toSecretBytes()throws  -> Data {
-    return try  FfiConverterData.lift(try rustCallWithError(FfiConverterTypeErrorCode.lift) {
-    uniffi_askar_uniffi_fn_method_askarlocalkey_to_secret_bytes(self.uniffiClonePointer(),$0
-    )
-})
-}
-    
-open func unwrapKey(alg: AskarKeyAlg, ciphertext: Data, tag: Data?, nonce: Data?)throws  -> AskarLocalKey {
-    return try  FfiConverterTypeAskarLocalKey.lift(try rustCallWithError(FfiConverterTypeErrorCode.lift) {
-    uniffi_askar_uniffi_fn_method_askarlocalkey_unwrap_key(self.uniffiClonePointer(),
-        FfiConverterTypeAskarKeyAlg.lower(alg),
-        FfiConverterData.lower(ciphertext),
-        FfiConverterOptionData.lower(tag),
-        FfiConverterOptionData.lower(nonce),$0
-    )
-})
-}
-    
-open func verifySignature(message: Data, signature: Data, sigType: String?)throws  -> Bool {
-    return try  FfiConverterBool.lift(try rustCallWithError(FfiConverterTypeErrorCode.lift) {
-    uniffi_askar_uniffi_fn_method_askarlocalkey_verify_signature(self.uniffiClonePointer(),
-        FfiConverterData.lower(message),
-        FfiConverterData.lower(signature),
-        FfiConverterOptionString.lower(sigType),$0
-    )
-})
-}
-    
-open func wrapKey(key: AskarLocalKey, nonce: Data?)throws  -> EncryptedBuffer {
-    return try  FfiConverterTypeEncryptedBuffer.lift(try rustCallWithError(FfiConverterTypeErrorCode.lift) {
-    uniffi_askar_uniffi_fn_method_askarlocalkey_wrap_key(self.uniffiClonePointer(),
-        FfiConverterTypeAskarLocalKey.lower(key),
-        FfiConverterOptionData.lower(nonce),$0
-    )
-})
-}
-    
+    open func aeadEncrypt(message: Data, nonce: Data?, aad: Data?) throws -> EncryptedBuffer {
+        return try FfiConverterTypeEncryptedBuffer.lift(rustCallWithError(FfiConverterTypeErrorCode.lift) {
+            uniffi_askar_uniffi_fn_method_askarlocalkey_aead_encrypt(self.uniffiClonePointer(),
+                                                                     FfiConverterData.lower(message),
+                                                                     FfiConverterOptionData.lower(nonce),
+                                                                     FfiConverterOptionData.lower(aad), $0)
+        })
+    }
 
+    open func aeadPadding(msgLen: Int32) -> Int32 {
+        return try! FfiConverterInt32.lift(try! rustCall {
+            uniffi_askar_uniffi_fn_method_askarlocalkey_aead_padding(self.uniffiClonePointer(),
+                                                                     FfiConverterInt32.lower(msgLen), $0)
+        })
+    }
+
+    open func aeadParams() throws -> AeadParams {
+        return try FfiConverterTypeAeadParams.lift(rustCallWithError(FfiConverterTypeErrorCode.lift) {
+            uniffi_askar_uniffi_fn_method_askarlocalkey_aead_params(self.uniffiClonePointer(), $0)
+        })
+    }
+
+    open func aeadRandomNonce() throws -> Data {
+        return try FfiConverterData.lift(rustCallWithError(FfiConverterTypeErrorCode.lift) {
+            uniffi_askar_uniffi_fn_method_askarlocalkey_aead_random_nonce(self.uniffiClonePointer(), $0)
+        })
+    }
+
+    open func algorithm() -> AskarKeyAlg {
+        return try! FfiConverterTypeAskarKeyAlg.lift(try! rustCall {
+            uniffi_askar_uniffi_fn_method_askarlocalkey_algorithm(self.uniffiClonePointer(), $0)
+        })
+    }
+
+    open func convertKey(alg: AskarKeyAlg) throws -> AskarLocalKey {
+        return try FfiConverterTypeAskarLocalKey.lift(rustCallWithError(FfiConverterTypeErrorCode.lift) {
+            uniffi_askar_uniffi_fn_method_askarlocalkey_convert_key(self.uniffiClonePointer(),
+                                                                    FfiConverterTypeAskarKeyAlg.lower(alg), $0)
+        })
+    }
+
+    open func signMessage(message: Data, sigType: String?) throws -> Data {
+        return try FfiConverterData.lift(rustCallWithError(FfiConverterTypeErrorCode.lift) {
+            uniffi_askar_uniffi_fn_method_askarlocalkey_sign_message(self.uniffiClonePointer(),
+                                                                     FfiConverterData.lower(message),
+                                                                     FfiConverterOptionString.lower(sigType), $0)
+        })
+    }
+
+    open func toJwkPublic(alg: AskarKeyAlg?) throws -> String {
+        return try FfiConverterString.lift(rustCallWithError(FfiConverterTypeErrorCode.lift) {
+            uniffi_askar_uniffi_fn_method_askarlocalkey_to_jwk_public(self.uniffiClonePointer(),
+                                                                      FfiConverterOptionTypeAskarKeyAlg.lower(alg), $0)
+        })
+    }
+
+    open func toJwkSecret() throws -> Data {
+        return try FfiConverterData.lift(rustCallWithError(FfiConverterTypeErrorCode.lift) {
+            uniffi_askar_uniffi_fn_method_askarlocalkey_to_jwk_secret(self.uniffiClonePointer(), $0)
+        })
+    }
+
+    open func toJwkThumbprint(alg: AskarKeyAlg?) throws -> String {
+        return try FfiConverterString.lift(rustCallWithError(FfiConverterTypeErrorCode.lift) {
+            uniffi_askar_uniffi_fn_method_askarlocalkey_to_jwk_thumbprint(self.uniffiClonePointer(),
+                                                                          FfiConverterOptionTypeAskarKeyAlg.lower(alg), $0)
+        })
+    }
+
+    open func toJwkThumbprints() throws -> [String] {
+        return try FfiConverterSequenceString.lift(rustCallWithError(FfiConverterTypeErrorCode.lift) {
+            uniffi_askar_uniffi_fn_method_askarlocalkey_to_jwk_thumbprints(self.uniffiClonePointer(), $0)
+        })
+    }
+
+    open func toKeyExchange(alg: AskarKeyAlg, pk: AskarLocalKey) throws -> AskarLocalKey {
+        return try FfiConverterTypeAskarLocalKey.lift(rustCallWithError(FfiConverterTypeErrorCode.lift) {
+            uniffi_askar_uniffi_fn_method_askarlocalkey_to_key_exchange(self.uniffiClonePointer(),
+                                                                        FfiConverterTypeAskarKeyAlg.lower(alg),
+                                                                        FfiConverterTypeAskarLocalKey.lower(pk), $0)
+        })
+    }
+
+    open func toPublicBytes() throws -> Data {
+        return try FfiConverterData.lift(rustCallWithError(FfiConverterTypeErrorCode.lift) {
+            uniffi_askar_uniffi_fn_method_askarlocalkey_to_public_bytes(self.uniffiClonePointer(), $0)
+        })
+    }
+
+    open func toSecretBytes() throws -> Data {
+        return try FfiConverterData.lift(rustCallWithError(FfiConverterTypeErrorCode.lift) {
+            uniffi_askar_uniffi_fn_method_askarlocalkey_to_secret_bytes(self.uniffiClonePointer(), $0)
+        })
+    }
+
+    open func unwrapKey(alg: AskarKeyAlg, ciphertext: Data, tag: Data?, nonce: Data?) throws -> AskarLocalKey {
+        return try FfiConverterTypeAskarLocalKey.lift(rustCallWithError(FfiConverterTypeErrorCode.lift) {
+            uniffi_askar_uniffi_fn_method_askarlocalkey_unwrap_key(self.uniffiClonePointer(),
+                                                                   FfiConverterTypeAskarKeyAlg.lower(alg),
+                                                                   FfiConverterData.lower(ciphertext),
+                                                                   FfiConverterOptionData.lower(tag),
+                                                                   FfiConverterOptionData.lower(nonce), $0)
+        })
+    }
+
+    open func verifySignature(message: Data, signature: Data, sigType: String?) throws -> Bool {
+        return try FfiConverterBool.lift(rustCallWithError(FfiConverterTypeErrorCode.lift) {
+            uniffi_askar_uniffi_fn_method_askarlocalkey_verify_signature(self.uniffiClonePointer(),
+                                                                         FfiConverterData.lower(message),
+                                                                         FfiConverterData.lower(signature),
+                                                                         FfiConverterOptionString.lower(sigType), $0)
+        })
+    }
+
+    open func wrapKey(key: AskarLocalKey, nonce: Data?) throws -> EncryptedBuffer {
+        return try FfiConverterTypeEncryptedBuffer.lift(rustCallWithError(FfiConverterTypeErrorCode.lift) {
+            uniffi_askar_uniffi_fn_method_askarlocalkey_wrap_key(self.uniffiClonePointer(),
+                                                                 FfiConverterTypeAskarLocalKey.lower(key),
+                                                                 FfiConverterOptionData.lower(nonce), $0)
+        })
+    }
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public struct FfiConverterTypeAskarLocalKey: FfiConverter {
-
     typealias FfiType = UnsafeMutableRawPointer
     typealias SwiftType = AskarLocalKey
 
@@ -1664,7 +1551,7 @@ public struct FfiConverterTypeAskarLocalKey: FfiConverter {
         // The Rust code won't compile if a pointer won't fit in a UInt64.
         // We have to go via `UInt` because that's the thing that's the size of a pointer.
         let ptr = UnsafeMutableRawPointer(bitPattern: UInt(truncatingIfNeeded: v))
-        if (ptr == nil) {
+        if ptr == nil {
             throw UniffiInternalError.unexpectedNullPointer
         }
         return try lift(ptr!)
@@ -1677,42 +1564,35 @@ public struct FfiConverterTypeAskarLocalKey: FfiConverter {
     }
 }
 
-
-
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeAskarLocalKey_lift(_ pointer: UnsafeMutableRawPointer) throws -> AskarLocalKey {
     return try FfiConverterTypeAskarLocalKey.lift(pointer)
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeAskarLocalKey_lower(_ value: AskarLocalKey) -> UnsafeMutableRawPointer {
     return FfiConverterTypeAskarLocalKey.lower(value)
 }
 
+public protocol AskarScanProtocol: AnyObject {
+    func fetchAll() async throws -> [AskarEntry]
 
-
-
-public protocol AskarScanProtocol : AnyObject {
-    
-    func fetchAll() async throws  -> [AskarEntry]
-    
-    func next() async throws  -> [AskarEntry]?
-    
+    func next() async throws -> [AskarEntry]?
 }
 
 open class AskarScan:
-    AskarScanProtocol {
+    AskarScanProtocol
+{
     fileprivate let pointer: UnsafeMutableRawPointer!
 
     /// Used to instantiate a [FFIObject] without an actual pointer, for fakes in tests, mostly.
-#if swift(>=5.8)
-    @_documentation(visibility: private)
-#endif
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
     public struct NoPointer {
         public init() {}
     }
@@ -1720,7 +1600,7 @@ open class AskarScan:
     // TODO: We'd like this to be `private` but for Swifty reasons,
     // we can't implement `FfiConverter` without making this `required` and we can't
     // make it `required` without making it `public`.
-    required public init(unsafeFromRawPointer pointer: UnsafeMutableRawPointer) {
+    public required init(unsafeFromRawPointer pointer: UnsafeMutableRawPointer) {
         self.pointer = pointer
     }
 
@@ -1729,19 +1609,20 @@ open class AskarScan:
     //
     // - Warning:
     //     Any object instantiated with this constructor cannot be passed to an actual Rust-backed object. Since there isn't a backing [Pointer] the FFI lower functions will crash.
-#if swift(>=5.8)
-    @_documentation(visibility: private)
-#endif
-    public init(noPointer: NoPointer) {
-        self.pointer = nil
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
+    public init(noPointer _: NoPointer) {
+        pointer = nil
     }
 
-#if swift(>=5.8)
-    @_documentation(visibility: private)
-#endif
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
     public func uniffiClonePointer() -> UnsafeMutableRawPointer {
         return try! rustCall { uniffi_askar_uniffi_fn_clone_askarscan(self.pointer, $0) }
     }
+
     // No primary constructor declared for this class.
 
     deinit {
@@ -1752,51 +1633,43 @@ open class AskarScan:
         try! rustCall { uniffi_askar_uniffi_fn_free_askarscan(pointer, $0) }
     }
 
-    
+    open func fetchAll() async throws -> [AskarEntry] {
+        return
+            try await uniffiRustCallAsync(
+                rustFutureFunc: {
+                    uniffi_askar_uniffi_fn_method_askarscan_fetch_all(
+                        self.uniffiClonePointer()
+                    )
+                },
+                pollFunc: ffi_askar_uniffi_rust_future_poll_rust_buffer,
+                completeFunc: ffi_askar_uniffi_rust_future_complete_rust_buffer,
+                freeFunc: ffi_askar_uniffi_rust_future_free_rust_buffer,
+                liftFunc: FfiConverterSequenceTypeAskarEntry.lift,
+                errorHandler: FfiConverterTypeErrorCode.lift
+            )
+    }
 
-    
-open func fetchAll()async throws  -> [AskarEntry] {
-    return
-        try  await uniffiRustCallAsync(
-            rustFutureFunc: {
-                uniffi_askar_uniffi_fn_method_askarscan_fetch_all(
-                    self.uniffiClonePointer()
-                    
-                )
-            },
-            pollFunc: ffi_askar_uniffi_rust_future_poll_rust_buffer,
-            completeFunc: ffi_askar_uniffi_rust_future_complete_rust_buffer,
-            freeFunc: ffi_askar_uniffi_rust_future_free_rust_buffer,
-            liftFunc: FfiConverterSequenceTypeAskarEntry.lift,
-            errorHandler: FfiConverterTypeErrorCode.lift
-        )
-}
-    
-open func next()async throws  -> [AskarEntry]? {
-    return
-        try  await uniffiRustCallAsync(
-            rustFutureFunc: {
-                uniffi_askar_uniffi_fn_method_askarscan_next(
-                    self.uniffiClonePointer()
-                    
-                )
-            },
-            pollFunc: ffi_askar_uniffi_rust_future_poll_rust_buffer,
-            completeFunc: ffi_askar_uniffi_rust_future_complete_rust_buffer,
-            freeFunc: ffi_askar_uniffi_rust_future_free_rust_buffer,
-            liftFunc: FfiConverterOptionSequenceTypeAskarEntry.lift,
-            errorHandler: FfiConverterTypeErrorCode.lift
-        )
-}
-    
-
+    open func next() async throws -> [AskarEntry]? {
+        return
+            try await uniffiRustCallAsync(
+                rustFutureFunc: {
+                    uniffi_askar_uniffi_fn_method_askarscan_next(
+                        self.uniffiClonePointer()
+                    )
+                },
+                pollFunc: ffi_askar_uniffi_rust_future_poll_rust_buffer,
+                completeFunc: ffi_askar_uniffi_rust_future_complete_rust_buffer,
+                freeFunc: ffi_askar_uniffi_rust_future_free_rust_buffer,
+                liftFunc: FfiConverterOptionSequenceTypeAskarEntry.lift,
+                errorHandler: FfiConverterTypeErrorCode.lift
+            )
+    }
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public struct FfiConverterTypeAskarScan: FfiConverter {
-
     typealias FfiType = UnsafeMutableRawPointer
     typealias SwiftType = AskarScan
 
@@ -1813,7 +1686,7 @@ public struct FfiConverterTypeAskarScan: FfiConverter {
         // The Rust code won't compile if a pointer won't fit in a UInt64.
         // We have to go via `UInt` because that's the thing that's the size of a pointer.
         let ptr = UnsafeMutableRawPointer(bitPattern: UInt(truncatingIfNeeded: v))
-        if (ptr == nil) {
+        if ptr == nil {
             throw UniffiInternalError.unexpectedNullPointer
         }
         return try lift(ptr!)
@@ -1826,60 +1699,53 @@ public struct FfiConverterTypeAskarScan: FfiConverter {
     }
 }
 
-
-
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeAskarScan_lift(_ pointer: UnsafeMutableRawPointer) throws -> AskarScan {
     return try FfiConverterTypeAskarScan.lift(pointer)
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeAskarScan_lower(_ value: AskarScan) -> UnsafeMutableRawPointer {
     return FfiConverterTypeAskarScan.lower(value)
 }
 
+public protocol AskarSessionProtocol: AnyObject {
+    func closeSession() async throws
 
+    func count(category: String, tagFilter: String?) async throws -> Int64
 
+    func fetch(category: String, name: String, forUpdate: Bool) async throws -> AskarEntry?
 
-public protocol AskarSessionProtocol : AnyObject {
-    
-    func closeSession() async throws 
-    
-    func count(category: String, tagFilter: String?) async throws  -> Int64
-    
-    func fetch(category: String, name: String, forUpdate: Bool) async throws  -> AskarEntry?
-    
-    func fetchAll(category: String, tagFilter: String?, limit: Int64?, forUpdate: Bool) async throws  -> [AskarEntry]
-    
-    func fetchAllKeys(algorithm: String?, thumbprint: String?, tagFilter: String?, limit: Int64?, forUpdate: Bool) async throws  -> [AskarKeyEntry]
-    
-    func fetchKey(name: String, forUpdate: Bool) async throws  -> AskarKeyEntry?
-    
-    func insertKey(name: String, key: AskarLocalKey, metadata: String?, tags: String?, expiryMs: Int64?) async throws 
-    
-    func removeAll(category: String, tagFilter: String?) async throws  -> Int64
-    
-    func removeKey(name: String) async throws 
-    
-    func update(operation: AskarEntryOperation, category: String, name: String, value: Data, tags: String?, expiryMs: Int64?) async throws 
-    
-    func updateKey(name: String, metadata: String?, tags: String?, expiryMs: Int64?) async throws 
-    
+    func fetchAll(category: String, tagFilter: String?, limit: Int64?, forUpdate: Bool) async throws -> [AskarEntry]
+
+    func fetchAllKeys(algorithm: String?, thumbprint: String?, tagFilter: String?, limit: Int64?, forUpdate: Bool) async throws -> [AskarKeyEntry]
+
+    func fetchKey(name: String, forUpdate: Bool) async throws -> AskarKeyEntry?
+
+    func insertKey(name: String, key: AskarLocalKey, metadata: String?, tags: String?, expiryMs: Int64?) async throws
+
+    func removeAll(category: String, tagFilter: String?) async throws -> Int64
+
+    func removeKey(name: String) async throws
+
+    func update(operation: AskarEntryOperation, category: String, name: String, value: Data, tags: String?, expiryMs: Int64?) async throws
+
+    func updateKey(name: String, metadata: String?, tags: String?, expiryMs: Int64?) async throws
 }
 
 open class AskarSession:
-    AskarSessionProtocol {
+    AskarSessionProtocol
+{
     fileprivate let pointer: UnsafeMutableRawPointer!
 
     /// Used to instantiate a [FFIObject] without an actual pointer, for fakes in tests, mostly.
-#if swift(>=5.8)
-    @_documentation(visibility: private)
-#endif
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
     public struct NoPointer {
         public init() {}
     }
@@ -1887,7 +1753,7 @@ open class AskarSession:
     // TODO: We'd like this to be `private` but for Swifty reasons,
     // we can't implement `FfiConverter` without making this `required` and we can't
     // make it `required` without making it `public`.
-    required public init(unsafeFromRawPointer pointer: UnsafeMutableRawPointer) {
+    public required init(unsafeFromRawPointer pointer: UnsafeMutableRawPointer) {
         self.pointer = pointer
     }
 
@@ -1896,19 +1762,20 @@ open class AskarSession:
     //
     // - Warning:
     //     Any object instantiated with this constructor cannot be passed to an actual Rust-backed object. Since there isn't a backing [Pointer] the FFI lower functions will crash.
-#if swift(>=5.8)
-    @_documentation(visibility: private)
-#endif
-    public init(noPointer: NoPointer) {
-        self.pointer = nil
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
+    public init(noPointer _: NoPointer) {
+        pointer = nil
     }
 
-#if swift(>=5.8)
-    @_documentation(visibility: private)
-#endif
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
     public func uniffiClonePointer() -> UnsafeMutableRawPointer {
         return try! rustCall { uniffi_askar_uniffi_fn_clone_askarsession(self.pointer, $0) }
     }
+
     // No primary constructor declared for this class.
 
     deinit {
@@ -1919,204 +1786,197 @@ open class AskarSession:
         try! rustCall { uniffi_askar_uniffi_fn_free_askarsession(pointer, $0) }
     }
 
-    
+    open func closeSession() async throws {
+        return
+            try await uniffiRustCallAsync(
+                rustFutureFunc: {
+                    uniffi_askar_uniffi_fn_method_askarsession_close_session(
+                        self.uniffiClonePointer()
+                    )
+                },
+                pollFunc: ffi_askar_uniffi_rust_future_poll_void,
+                completeFunc: ffi_askar_uniffi_rust_future_complete_void,
+                freeFunc: ffi_askar_uniffi_rust_future_free_void,
+                liftFunc: { $0 },
+                errorHandler: FfiConverterTypeErrorCode.lift
+            )
+    }
 
-    
-open func closeSession()async throws  {
-    return
-        try  await uniffiRustCallAsync(
-            rustFutureFunc: {
-                uniffi_askar_uniffi_fn_method_askarsession_close_session(
-                    self.uniffiClonePointer()
-                    
-                )
-            },
-            pollFunc: ffi_askar_uniffi_rust_future_poll_void,
-            completeFunc: ffi_askar_uniffi_rust_future_complete_void,
-            freeFunc: ffi_askar_uniffi_rust_future_free_void,
-            liftFunc: { $0 },
-            errorHandler: FfiConverterTypeErrorCode.lift
-        )
-}
-    
-open func count(category: String, tagFilter: String?)async throws  -> Int64 {
-    return
-        try  await uniffiRustCallAsync(
-            rustFutureFunc: {
-                uniffi_askar_uniffi_fn_method_askarsession_count(
-                    self.uniffiClonePointer(),
-                    FfiConverterString.lower(category),FfiConverterOptionString.lower(tagFilter)
-                )
-            },
-            pollFunc: ffi_askar_uniffi_rust_future_poll_i64,
-            completeFunc: ffi_askar_uniffi_rust_future_complete_i64,
-            freeFunc: ffi_askar_uniffi_rust_future_free_i64,
-            liftFunc: FfiConverterInt64.lift,
-            errorHandler: FfiConverterTypeErrorCode.lift
-        )
-}
-    
-open func fetch(category: String, name: String, forUpdate: Bool)async throws  -> AskarEntry? {
-    return
-        try  await uniffiRustCallAsync(
-            rustFutureFunc: {
-                uniffi_askar_uniffi_fn_method_askarsession_fetch(
-                    self.uniffiClonePointer(),
-                    FfiConverterString.lower(category),FfiConverterString.lower(name),FfiConverterBool.lower(forUpdate)
-                )
-            },
-            pollFunc: ffi_askar_uniffi_rust_future_poll_rust_buffer,
-            completeFunc: ffi_askar_uniffi_rust_future_complete_rust_buffer,
-            freeFunc: ffi_askar_uniffi_rust_future_free_rust_buffer,
-            liftFunc: FfiConverterOptionTypeAskarEntry.lift,
-            errorHandler: FfiConverterTypeErrorCode.lift
-        )
-}
-    
-open func fetchAll(category: String, tagFilter: String?, limit: Int64?, forUpdate: Bool)async throws  -> [AskarEntry] {
-    return
-        try  await uniffiRustCallAsync(
-            rustFutureFunc: {
-                uniffi_askar_uniffi_fn_method_askarsession_fetch_all(
-                    self.uniffiClonePointer(),
-                    FfiConverterString.lower(category),FfiConverterOptionString.lower(tagFilter),FfiConverterOptionInt64.lower(limit),FfiConverterBool.lower(forUpdate)
-                )
-            },
-            pollFunc: ffi_askar_uniffi_rust_future_poll_rust_buffer,
-            completeFunc: ffi_askar_uniffi_rust_future_complete_rust_buffer,
-            freeFunc: ffi_askar_uniffi_rust_future_free_rust_buffer,
-            liftFunc: FfiConverterSequenceTypeAskarEntry.lift,
-            errorHandler: FfiConverterTypeErrorCode.lift
-        )
-}
-    
-open func fetchAllKeys(algorithm: String?, thumbprint: String?, tagFilter: String?, limit: Int64?, forUpdate: Bool)async throws  -> [AskarKeyEntry] {
-    return
-        try  await uniffiRustCallAsync(
-            rustFutureFunc: {
-                uniffi_askar_uniffi_fn_method_askarsession_fetch_all_keys(
-                    self.uniffiClonePointer(),
-                    FfiConverterOptionString.lower(algorithm),FfiConverterOptionString.lower(thumbprint),FfiConverterOptionString.lower(tagFilter),FfiConverterOptionInt64.lower(limit),FfiConverterBool.lower(forUpdate)
-                )
-            },
-            pollFunc: ffi_askar_uniffi_rust_future_poll_rust_buffer,
-            completeFunc: ffi_askar_uniffi_rust_future_complete_rust_buffer,
-            freeFunc: ffi_askar_uniffi_rust_future_free_rust_buffer,
-            liftFunc: FfiConverterSequenceTypeAskarKeyEntry.lift,
-            errorHandler: FfiConverterTypeErrorCode.lift
-        )
-}
-    
-open func fetchKey(name: String, forUpdate: Bool)async throws  -> AskarKeyEntry? {
-    return
-        try  await uniffiRustCallAsync(
-            rustFutureFunc: {
-                uniffi_askar_uniffi_fn_method_askarsession_fetch_key(
-                    self.uniffiClonePointer(),
-                    FfiConverterString.lower(name),FfiConverterBool.lower(forUpdate)
-                )
-            },
-            pollFunc: ffi_askar_uniffi_rust_future_poll_rust_buffer,
-            completeFunc: ffi_askar_uniffi_rust_future_complete_rust_buffer,
-            freeFunc: ffi_askar_uniffi_rust_future_free_rust_buffer,
-            liftFunc: FfiConverterOptionTypeAskarKeyEntry.lift,
-            errorHandler: FfiConverterTypeErrorCode.lift
-        )
-}
-    
-open func insertKey(name: String, key: AskarLocalKey, metadata: String?, tags: String?, expiryMs: Int64?)async throws  {
-    return
-        try  await uniffiRustCallAsync(
-            rustFutureFunc: {
-                uniffi_askar_uniffi_fn_method_askarsession_insert_key(
-                    self.uniffiClonePointer(),
-                    FfiConverterString.lower(name),FfiConverterTypeAskarLocalKey.lower(key),FfiConverterOptionString.lower(metadata),FfiConverterOptionString.lower(tags),FfiConverterOptionInt64.lower(expiryMs)
-                )
-            },
-            pollFunc: ffi_askar_uniffi_rust_future_poll_void,
-            completeFunc: ffi_askar_uniffi_rust_future_complete_void,
-            freeFunc: ffi_askar_uniffi_rust_future_free_void,
-            liftFunc: { $0 },
-            errorHandler: FfiConverterTypeErrorCode.lift
-        )
-}
-    
-open func removeAll(category: String, tagFilter: String?)async throws  -> Int64 {
-    return
-        try  await uniffiRustCallAsync(
-            rustFutureFunc: {
-                uniffi_askar_uniffi_fn_method_askarsession_remove_all(
-                    self.uniffiClonePointer(),
-                    FfiConverterString.lower(category),FfiConverterOptionString.lower(tagFilter)
-                )
-            },
-            pollFunc: ffi_askar_uniffi_rust_future_poll_i64,
-            completeFunc: ffi_askar_uniffi_rust_future_complete_i64,
-            freeFunc: ffi_askar_uniffi_rust_future_free_i64,
-            liftFunc: FfiConverterInt64.lift,
-            errorHandler: FfiConverterTypeErrorCode.lift
-        )
-}
-    
-open func removeKey(name: String)async throws  {
-    return
-        try  await uniffiRustCallAsync(
-            rustFutureFunc: {
-                uniffi_askar_uniffi_fn_method_askarsession_remove_key(
-                    self.uniffiClonePointer(),
-                    FfiConverterString.lower(name)
-                )
-            },
-            pollFunc: ffi_askar_uniffi_rust_future_poll_void,
-            completeFunc: ffi_askar_uniffi_rust_future_complete_void,
-            freeFunc: ffi_askar_uniffi_rust_future_free_void,
-            liftFunc: { $0 },
-            errorHandler: FfiConverterTypeErrorCode.lift
-        )
-}
-    
-open func update(operation: AskarEntryOperation, category: String, name: String, value: Data, tags: String?, expiryMs: Int64?)async throws  {
-    return
-        try  await uniffiRustCallAsync(
-            rustFutureFunc: {
-                uniffi_askar_uniffi_fn_method_askarsession_update(
-                    self.uniffiClonePointer(),
-                    FfiConverterTypeAskarEntryOperation.lower(operation),FfiConverterString.lower(category),FfiConverterString.lower(name),FfiConverterData.lower(value),FfiConverterOptionString.lower(tags),FfiConverterOptionInt64.lower(expiryMs)
-                )
-            },
-            pollFunc: ffi_askar_uniffi_rust_future_poll_void,
-            completeFunc: ffi_askar_uniffi_rust_future_complete_void,
-            freeFunc: ffi_askar_uniffi_rust_future_free_void,
-            liftFunc: { $0 },
-            errorHandler: FfiConverterTypeErrorCode.lift
-        )
-}
-    
-open func updateKey(name: String, metadata: String?, tags: String?, expiryMs: Int64?)async throws  {
-    return
-        try  await uniffiRustCallAsync(
-            rustFutureFunc: {
-                uniffi_askar_uniffi_fn_method_askarsession_update_key(
-                    self.uniffiClonePointer(),
-                    FfiConverterString.lower(name),FfiConverterOptionString.lower(metadata),FfiConverterOptionString.lower(tags),FfiConverterOptionInt64.lower(expiryMs)
-                )
-            },
-            pollFunc: ffi_askar_uniffi_rust_future_poll_void,
-            completeFunc: ffi_askar_uniffi_rust_future_complete_void,
-            freeFunc: ffi_askar_uniffi_rust_future_free_void,
-            liftFunc: { $0 },
-            errorHandler: FfiConverterTypeErrorCode.lift
-        )
-}
-    
+    open func count(category: String, tagFilter: String?) async throws -> Int64 {
+        return
+            try await uniffiRustCallAsync(
+                rustFutureFunc: {
+                    uniffi_askar_uniffi_fn_method_askarsession_count(
+                        self.uniffiClonePointer(),
+                        FfiConverterString.lower(category), FfiConverterOptionString.lower(tagFilter)
+                    )
+                },
+                pollFunc: ffi_askar_uniffi_rust_future_poll_i64,
+                completeFunc: ffi_askar_uniffi_rust_future_complete_i64,
+                freeFunc: ffi_askar_uniffi_rust_future_free_i64,
+                liftFunc: FfiConverterInt64.lift,
+                errorHandler: FfiConverterTypeErrorCode.lift
+            )
+    }
 
+    open func fetch(category: String, name: String, forUpdate: Bool) async throws -> AskarEntry? {
+        return
+            try await uniffiRustCallAsync(
+                rustFutureFunc: {
+                    uniffi_askar_uniffi_fn_method_askarsession_fetch(
+                        self.uniffiClonePointer(),
+                        FfiConverterString.lower(category), FfiConverterString.lower(name), FfiConverterBool.lower(forUpdate)
+                    )
+                },
+                pollFunc: ffi_askar_uniffi_rust_future_poll_rust_buffer,
+                completeFunc: ffi_askar_uniffi_rust_future_complete_rust_buffer,
+                freeFunc: ffi_askar_uniffi_rust_future_free_rust_buffer,
+                liftFunc: FfiConverterOptionTypeAskarEntry.lift,
+                errorHandler: FfiConverterTypeErrorCode.lift
+            )
+    }
+
+    open func fetchAll(category: String, tagFilter: String?, limit: Int64?, forUpdate: Bool) async throws -> [AskarEntry] {
+        return
+            try await uniffiRustCallAsync(
+                rustFutureFunc: {
+                    uniffi_askar_uniffi_fn_method_askarsession_fetch_all(
+                        self.uniffiClonePointer(),
+                        FfiConverterString.lower(category), FfiConverterOptionString.lower(tagFilter), FfiConverterOptionInt64.lower(limit), FfiConverterBool.lower(forUpdate)
+                    )
+                },
+                pollFunc: ffi_askar_uniffi_rust_future_poll_rust_buffer,
+                completeFunc: ffi_askar_uniffi_rust_future_complete_rust_buffer,
+                freeFunc: ffi_askar_uniffi_rust_future_free_rust_buffer,
+                liftFunc: FfiConverterSequenceTypeAskarEntry.lift,
+                errorHandler: FfiConverterTypeErrorCode.lift
+            )
+    }
+
+    open func fetchAllKeys(algorithm: String?, thumbprint: String?, tagFilter: String?, limit: Int64?, forUpdate: Bool) async throws -> [AskarKeyEntry] {
+        return
+            try await uniffiRustCallAsync(
+                rustFutureFunc: {
+                    uniffi_askar_uniffi_fn_method_askarsession_fetch_all_keys(
+                        self.uniffiClonePointer(),
+                        FfiConverterOptionString.lower(algorithm), FfiConverterOptionString.lower(thumbprint), FfiConverterOptionString.lower(tagFilter), FfiConverterOptionInt64.lower(limit), FfiConverterBool.lower(forUpdate)
+                    )
+                },
+                pollFunc: ffi_askar_uniffi_rust_future_poll_rust_buffer,
+                completeFunc: ffi_askar_uniffi_rust_future_complete_rust_buffer,
+                freeFunc: ffi_askar_uniffi_rust_future_free_rust_buffer,
+                liftFunc: FfiConverterSequenceTypeAskarKeyEntry.lift,
+                errorHandler: FfiConverterTypeErrorCode.lift
+            )
+    }
+
+    open func fetchKey(name: String, forUpdate: Bool) async throws -> AskarKeyEntry? {
+        return
+            try await uniffiRustCallAsync(
+                rustFutureFunc: {
+                    uniffi_askar_uniffi_fn_method_askarsession_fetch_key(
+                        self.uniffiClonePointer(),
+                        FfiConverterString.lower(name), FfiConverterBool.lower(forUpdate)
+                    )
+                },
+                pollFunc: ffi_askar_uniffi_rust_future_poll_rust_buffer,
+                completeFunc: ffi_askar_uniffi_rust_future_complete_rust_buffer,
+                freeFunc: ffi_askar_uniffi_rust_future_free_rust_buffer,
+                liftFunc: FfiConverterOptionTypeAskarKeyEntry.lift,
+                errorHandler: FfiConverterTypeErrorCode.lift
+            )
+    }
+
+    open func insertKey(name: String, key: AskarLocalKey, metadata: String?, tags: String?, expiryMs: Int64?) async throws {
+        return
+            try await uniffiRustCallAsync(
+                rustFutureFunc: {
+                    uniffi_askar_uniffi_fn_method_askarsession_insert_key(
+                        self.uniffiClonePointer(),
+                        FfiConverterString.lower(name), FfiConverterTypeAskarLocalKey.lower(key), FfiConverterOptionString.lower(metadata), FfiConverterOptionString.lower(tags), FfiConverterOptionInt64.lower(expiryMs)
+                    )
+                },
+                pollFunc: ffi_askar_uniffi_rust_future_poll_void,
+                completeFunc: ffi_askar_uniffi_rust_future_complete_void,
+                freeFunc: ffi_askar_uniffi_rust_future_free_void,
+                liftFunc: { $0 },
+                errorHandler: FfiConverterTypeErrorCode.lift
+            )
+    }
+
+    open func removeAll(category: String, tagFilter: String?) async throws -> Int64 {
+        return
+            try await uniffiRustCallAsync(
+                rustFutureFunc: {
+                    uniffi_askar_uniffi_fn_method_askarsession_remove_all(
+                        self.uniffiClonePointer(),
+                        FfiConverterString.lower(category), FfiConverterOptionString.lower(tagFilter)
+                    )
+                },
+                pollFunc: ffi_askar_uniffi_rust_future_poll_i64,
+                completeFunc: ffi_askar_uniffi_rust_future_complete_i64,
+                freeFunc: ffi_askar_uniffi_rust_future_free_i64,
+                liftFunc: FfiConverterInt64.lift,
+                errorHandler: FfiConverterTypeErrorCode.lift
+            )
+    }
+
+    open func removeKey(name: String) async throws {
+        return
+            try await uniffiRustCallAsync(
+                rustFutureFunc: {
+                    uniffi_askar_uniffi_fn_method_askarsession_remove_key(
+                        self.uniffiClonePointer(),
+                        FfiConverterString.lower(name)
+                    )
+                },
+                pollFunc: ffi_askar_uniffi_rust_future_poll_void,
+                completeFunc: ffi_askar_uniffi_rust_future_complete_void,
+                freeFunc: ffi_askar_uniffi_rust_future_free_void,
+                liftFunc: { $0 },
+                errorHandler: FfiConverterTypeErrorCode.lift
+            )
+    }
+
+    open func update(operation: AskarEntryOperation, category: String, name: String, value: Data, tags: String?, expiryMs: Int64?) async throws {
+        return
+            try await uniffiRustCallAsync(
+                rustFutureFunc: {
+                    uniffi_askar_uniffi_fn_method_askarsession_update(
+                        self.uniffiClonePointer(),
+                        FfiConverterTypeAskarEntryOperation.lower(operation), FfiConverterString.lower(category), FfiConverterString.lower(name), FfiConverterData.lower(value), FfiConverterOptionString.lower(tags), FfiConverterOptionInt64.lower(expiryMs)
+                    )
+                },
+                pollFunc: ffi_askar_uniffi_rust_future_poll_void,
+                completeFunc: ffi_askar_uniffi_rust_future_complete_void,
+                freeFunc: ffi_askar_uniffi_rust_future_free_void,
+                liftFunc: { $0 },
+                errorHandler: FfiConverterTypeErrorCode.lift
+            )
+    }
+
+    open func updateKey(name: String, metadata: String?, tags: String?, expiryMs: Int64?) async throws {
+        return
+            try await uniffiRustCallAsync(
+                rustFutureFunc: {
+                    uniffi_askar_uniffi_fn_method_askarsession_update_key(
+                        self.uniffiClonePointer(),
+                        FfiConverterString.lower(name), FfiConverterOptionString.lower(metadata), FfiConverterOptionString.lower(tags), FfiConverterOptionInt64.lower(expiryMs)
+                    )
+                },
+                pollFunc: ffi_askar_uniffi_rust_future_poll_void,
+                completeFunc: ffi_askar_uniffi_rust_future_complete_void,
+                freeFunc: ffi_askar_uniffi_rust_future_free_void,
+                liftFunc: { $0 },
+                errorHandler: FfiConverterTypeErrorCode.lift
+            )
+    }
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public struct FfiConverterTypeAskarSession: FfiConverter {
-
     typealias FfiType = UnsafeMutableRawPointer
     typealias SwiftType = AskarSession
 
@@ -2133,7 +1993,7 @@ public struct FfiConverterTypeAskarSession: FfiConverter {
         // The Rust code won't compile if a pointer won't fit in a UInt64.
         // We have to go via `UInt` because that's the thing that's the size of a pointer.
         let ptr = UnsafeMutableRawPointer(bitPattern: UInt(truncatingIfNeeded: v))
-        if (ptr == nil) {
+        if ptr == nil {
             throw UniffiInternalError.unexpectedNullPointer
         }
         return try lift(ptr!)
@@ -2146,52 +2006,45 @@ public struct FfiConverterTypeAskarSession: FfiConverter {
     }
 }
 
-
-
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeAskarSession_lift(_ pointer: UnsafeMutableRawPointer) throws -> AskarSession {
     return try FfiConverterTypeAskarSession.lift(pointer)
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeAskarSession_lower(_ value: AskarSession) -> UnsafeMutableRawPointer {
     return FfiConverterTypeAskarSession.lower(value)
 }
 
+public protocol AskarStoreProtocol: AnyObject {
+    func closeStore() async throws
 
+    func createProfile(profile: String?) async throws -> String
 
+    func getProfileName() async throws -> String
 
-public protocol AskarStoreProtocol : AnyObject {
-    
-    func closeStore() async throws 
-    
-    func createProfile(profile: String?) async throws  -> String
-    
-    func getProfileName() async throws  -> String
-    
-    func rekey(keyMethod: String?, passKey: String?) async throws 
-    
-    func removeProfile(profile: String) async throws  -> Bool
-    
-    func scan(profile: String?, category: String, tagFilter: String?, offset: Int64?, limit: Int64?) async throws  -> AskarScan
-    
-    func session(profile: String?) async throws  -> AskarSession
-    
+    func rekey(keyMethod: String?, passKey: String?) async throws
+
+    func removeProfile(profile: String) async throws -> Bool
+
+    func scan(profile: String?, category: String, tagFilter: String?, offset: Int64?, limit: Int64?) async throws -> AskarScan
+
+    func session(profile: String?) async throws -> AskarSession
 }
 
 open class AskarStore:
-    AskarStoreProtocol {
+    AskarStoreProtocol
+{
     fileprivate let pointer: UnsafeMutableRawPointer!
 
     /// Used to instantiate a [FFIObject] without an actual pointer, for fakes in tests, mostly.
-#if swift(>=5.8)
-    @_documentation(visibility: private)
-#endif
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
     public struct NoPointer {
         public init() {}
     }
@@ -2199,7 +2052,7 @@ open class AskarStore:
     // TODO: We'd like this to be `private` but for Swifty reasons,
     // we can't implement `FfiConverter` without making this `required` and we can't
     // make it `required` without making it `public`.
-    required public init(unsafeFromRawPointer pointer: UnsafeMutableRawPointer) {
+    public required init(unsafeFromRawPointer pointer: UnsafeMutableRawPointer) {
         self.pointer = pointer
     }
 
@@ -2208,19 +2061,20 @@ open class AskarStore:
     //
     // - Warning:
     //     Any object instantiated with this constructor cannot be passed to an actual Rust-backed object. Since there isn't a backing [Pointer] the FFI lower functions will crash.
-#if swift(>=5.8)
-    @_documentation(visibility: private)
-#endif
-    public init(noPointer: NoPointer) {
-        self.pointer = nil
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
+    public init(noPointer _: NoPointer) {
+        pointer = nil
     }
 
-#if swift(>=5.8)
-    @_documentation(visibility: private)
-#endif
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
     public func uniffiClonePointer() -> UnsafeMutableRawPointer {
         return try! rustCall { uniffi_askar_uniffi_fn_clone_askarstore(self.pointer, $0) }
     }
+
     // No primary constructor declared for this class.
 
     deinit {
@@ -2231,136 +2085,128 @@ open class AskarStore:
         try! rustCall { uniffi_askar_uniffi_fn_free_askarstore(pointer, $0) }
     }
 
-    
+    open func closeStore() async throws {
+        return
+            try await uniffiRustCallAsync(
+                rustFutureFunc: {
+                    uniffi_askar_uniffi_fn_method_askarstore_close_store(
+                        self.uniffiClonePointer()
+                    )
+                },
+                pollFunc: ffi_askar_uniffi_rust_future_poll_void,
+                completeFunc: ffi_askar_uniffi_rust_future_complete_void,
+                freeFunc: ffi_askar_uniffi_rust_future_free_void,
+                liftFunc: { $0 },
+                errorHandler: FfiConverterTypeErrorCode.lift
+            )
+    }
 
-    
-open func closeStore()async throws  {
-    return
-        try  await uniffiRustCallAsync(
-            rustFutureFunc: {
-                uniffi_askar_uniffi_fn_method_askarstore_close_store(
-                    self.uniffiClonePointer()
-                    
-                )
-            },
-            pollFunc: ffi_askar_uniffi_rust_future_poll_void,
-            completeFunc: ffi_askar_uniffi_rust_future_complete_void,
-            freeFunc: ffi_askar_uniffi_rust_future_free_void,
-            liftFunc: { $0 },
-            errorHandler: FfiConverterTypeErrorCode.lift
-        )
-}
-    
-open func createProfile(profile: String?)async throws  -> String {
-    return
-        try  await uniffiRustCallAsync(
-            rustFutureFunc: {
-                uniffi_askar_uniffi_fn_method_askarstore_create_profile(
-                    self.uniffiClonePointer(),
-                    FfiConverterOptionString.lower(profile)
-                )
-            },
-            pollFunc: ffi_askar_uniffi_rust_future_poll_rust_buffer,
-            completeFunc: ffi_askar_uniffi_rust_future_complete_rust_buffer,
-            freeFunc: ffi_askar_uniffi_rust_future_free_rust_buffer,
-            liftFunc: FfiConverterString.lift,
-            errorHandler: FfiConverterTypeErrorCode.lift
-        )
-}
-    
-open func getProfileName()async throws  -> String {
-    return
-        try  await uniffiRustCallAsync(
-            rustFutureFunc: {
-                uniffi_askar_uniffi_fn_method_askarstore_get_profile_name(
-                    self.uniffiClonePointer()
-                    
-                )
-            },
-            pollFunc: ffi_askar_uniffi_rust_future_poll_rust_buffer,
-            completeFunc: ffi_askar_uniffi_rust_future_complete_rust_buffer,
-            freeFunc: ffi_askar_uniffi_rust_future_free_rust_buffer,
-            liftFunc: FfiConverterString.lift,
-            errorHandler: FfiConverterTypeErrorCode.lift
-        )
-}
-    
-open func rekey(keyMethod: String?, passKey: String?)async throws  {
-    return
-        try  await uniffiRustCallAsync(
-            rustFutureFunc: {
-                uniffi_askar_uniffi_fn_method_askarstore_rekey(
-                    self.uniffiClonePointer(),
-                    FfiConverterOptionString.lower(keyMethod),FfiConverterOptionString.lower(passKey)
-                )
-            },
-            pollFunc: ffi_askar_uniffi_rust_future_poll_void,
-            completeFunc: ffi_askar_uniffi_rust_future_complete_void,
-            freeFunc: ffi_askar_uniffi_rust_future_free_void,
-            liftFunc: { $0 },
-            errorHandler: FfiConverterTypeErrorCode.lift
-        )
-}
-    
-open func removeProfile(profile: String)async throws  -> Bool {
-    return
-        try  await uniffiRustCallAsync(
-            rustFutureFunc: {
-                uniffi_askar_uniffi_fn_method_askarstore_remove_profile(
-                    self.uniffiClonePointer(),
-                    FfiConverterString.lower(profile)
-                )
-            },
-            pollFunc: ffi_askar_uniffi_rust_future_poll_i8,
-            completeFunc: ffi_askar_uniffi_rust_future_complete_i8,
-            freeFunc: ffi_askar_uniffi_rust_future_free_i8,
-            liftFunc: FfiConverterBool.lift,
-            errorHandler: FfiConverterTypeErrorCode.lift
-        )
-}
-    
-open func scan(profile: String?, category: String, tagFilter: String?, offset: Int64?, limit: Int64?)async throws  -> AskarScan {
-    return
-        try  await uniffiRustCallAsync(
-            rustFutureFunc: {
-                uniffi_askar_uniffi_fn_method_askarstore_scan(
-                    self.uniffiClonePointer(),
-                    FfiConverterOptionString.lower(profile),FfiConverterString.lower(category),FfiConverterOptionString.lower(tagFilter),FfiConverterOptionInt64.lower(offset),FfiConverterOptionInt64.lower(limit)
-                )
-            },
-            pollFunc: ffi_askar_uniffi_rust_future_poll_pointer,
-            completeFunc: ffi_askar_uniffi_rust_future_complete_pointer,
-            freeFunc: ffi_askar_uniffi_rust_future_free_pointer,
-            liftFunc: FfiConverterTypeAskarScan.lift,
-            errorHandler: FfiConverterTypeErrorCode.lift
-        )
-}
-    
-open func session(profile: String?)async throws  -> AskarSession {
-    return
-        try  await uniffiRustCallAsync(
-            rustFutureFunc: {
-                uniffi_askar_uniffi_fn_method_askarstore_session(
-                    self.uniffiClonePointer(),
-                    FfiConverterOptionString.lower(profile)
-                )
-            },
-            pollFunc: ffi_askar_uniffi_rust_future_poll_pointer,
-            completeFunc: ffi_askar_uniffi_rust_future_complete_pointer,
-            freeFunc: ffi_askar_uniffi_rust_future_free_pointer,
-            liftFunc: FfiConverterTypeAskarSession.lift,
-            errorHandler: FfiConverterTypeErrorCode.lift
-        )
-}
-    
+    open func createProfile(profile: String?) async throws -> String {
+        return
+            try await uniffiRustCallAsync(
+                rustFutureFunc: {
+                    uniffi_askar_uniffi_fn_method_askarstore_create_profile(
+                        self.uniffiClonePointer(),
+                        FfiConverterOptionString.lower(profile)
+                    )
+                },
+                pollFunc: ffi_askar_uniffi_rust_future_poll_rust_buffer,
+                completeFunc: ffi_askar_uniffi_rust_future_complete_rust_buffer,
+                freeFunc: ffi_askar_uniffi_rust_future_free_rust_buffer,
+                liftFunc: FfiConverterString.lift,
+                errorHandler: FfiConverterTypeErrorCode.lift
+            )
+    }
 
+    open func getProfileName() async throws -> String {
+        return
+            try await uniffiRustCallAsync(
+                rustFutureFunc: {
+                    uniffi_askar_uniffi_fn_method_askarstore_get_profile_name(
+                        self.uniffiClonePointer()
+                    )
+                },
+                pollFunc: ffi_askar_uniffi_rust_future_poll_rust_buffer,
+                completeFunc: ffi_askar_uniffi_rust_future_complete_rust_buffer,
+                freeFunc: ffi_askar_uniffi_rust_future_free_rust_buffer,
+                liftFunc: FfiConverterString.lift,
+                errorHandler: FfiConverterTypeErrorCode.lift
+            )
+    }
+
+    open func rekey(keyMethod: String?, passKey: String?) async throws {
+        return
+            try await uniffiRustCallAsync(
+                rustFutureFunc: {
+                    uniffi_askar_uniffi_fn_method_askarstore_rekey(
+                        self.uniffiClonePointer(),
+                        FfiConverterOptionString.lower(keyMethod), FfiConverterOptionString.lower(passKey)
+                    )
+                },
+                pollFunc: ffi_askar_uniffi_rust_future_poll_void,
+                completeFunc: ffi_askar_uniffi_rust_future_complete_void,
+                freeFunc: ffi_askar_uniffi_rust_future_free_void,
+                liftFunc: { $0 },
+                errorHandler: FfiConverterTypeErrorCode.lift
+            )
+    }
+
+    open func removeProfile(profile: String) async throws -> Bool {
+        return
+            try await uniffiRustCallAsync(
+                rustFutureFunc: {
+                    uniffi_askar_uniffi_fn_method_askarstore_remove_profile(
+                        self.uniffiClonePointer(),
+                        FfiConverterString.lower(profile)
+                    )
+                },
+                pollFunc: ffi_askar_uniffi_rust_future_poll_i8,
+                completeFunc: ffi_askar_uniffi_rust_future_complete_i8,
+                freeFunc: ffi_askar_uniffi_rust_future_free_i8,
+                liftFunc: FfiConverterBool.lift,
+                errorHandler: FfiConverterTypeErrorCode.lift
+            )
+    }
+
+    open func scan(profile: String?, category: String, tagFilter: String?, offset: Int64?, limit: Int64?) async throws -> AskarScan {
+        return
+            try await uniffiRustCallAsync(
+                rustFutureFunc: {
+                    uniffi_askar_uniffi_fn_method_askarstore_scan(
+                        self.uniffiClonePointer(),
+                        FfiConverterOptionString.lower(profile), FfiConverterString.lower(category), FfiConverterOptionString.lower(tagFilter), FfiConverterOptionInt64.lower(offset), FfiConverterOptionInt64.lower(limit)
+                    )
+                },
+                pollFunc: ffi_askar_uniffi_rust_future_poll_pointer,
+                completeFunc: ffi_askar_uniffi_rust_future_complete_pointer,
+                freeFunc: ffi_askar_uniffi_rust_future_free_pointer,
+                liftFunc: FfiConverterTypeAskarScan.lift,
+                errorHandler: FfiConverterTypeErrorCode.lift
+            )
+    }
+
+    open func session(profile: String?) async throws -> AskarSession {
+        return
+            try await uniffiRustCallAsync(
+                rustFutureFunc: {
+                    uniffi_askar_uniffi_fn_method_askarstore_session(
+                        self.uniffiClonePointer(),
+                        FfiConverterOptionString.lower(profile)
+                    )
+                },
+                pollFunc: ffi_askar_uniffi_rust_future_poll_pointer,
+                completeFunc: ffi_askar_uniffi_rust_future_complete_pointer,
+                freeFunc: ffi_askar_uniffi_rust_future_free_pointer,
+                liftFunc: FfiConverterTypeAskarSession.lift,
+                errorHandler: FfiConverterTypeErrorCode.lift
+            )
+    }
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public struct FfiConverterTypeAskarStore: FfiConverter {
-
     typealias FfiType = UnsafeMutableRawPointer
     typealias SwiftType = AskarStore
 
@@ -2377,7 +2223,7 @@ public struct FfiConverterTypeAskarStore: FfiConverter {
         // The Rust code won't compile if a pointer won't fit in a UInt64.
         // We have to go via `UInt` because that's the thing that's the size of a pointer.
         let ptr = UnsafeMutableRawPointer(bitPattern: UInt(truncatingIfNeeded: v))
-        if (ptr == nil) {
+        if ptr == nil {
             throw UniffiInternalError.unexpectedNullPointer
         }
         return try lift(ptr!)
@@ -2390,48 +2236,41 @@ public struct FfiConverterTypeAskarStore: FfiConverter {
     }
 }
 
-
-
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeAskarStore_lift(_ pointer: UnsafeMutableRawPointer) throws -> AskarStore {
     return try FfiConverterTypeAskarStore.lift(pointer)
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeAskarStore_lower(_ value: AskarStore) -> UnsafeMutableRawPointer {
     return FfiConverterTypeAskarStore.lower(value)
 }
 
+public protocol AskarStoreManagerProtocol: AnyObject {
+    func generateRawStoreKey(seed: String?) throws -> String
 
+    func migrateIndyWallet(specUri: String, walletName: String, walletKey: String, kdfLevel: String) async throws
 
+    func open(specUri: String, keyMethod: String?, passKey: String?, profile: String?) async throws -> AskarStore
 
-public protocol AskarStoreManagerProtocol : AnyObject {
-    
-    func generateRawStoreKey(seed: String?) throws  -> String
-    
-    func migrateIndyWallet(specUri: String, walletName: String, walletKey: String, kdfLevel: String) async throws 
-    
-    func `open`(specUri: String, keyMethod: String?, passKey: String?, profile: String?) async throws  -> AskarStore
-    
-    func provision(specUri: String, keyMethod: String?, passKey: String?, profile: String?, recreate: Bool) async throws  -> AskarStore
-    
-    func remove(specUri: String) async throws  -> Bool
-    
+    func provision(specUri: String, keyMethod: String?, passKey: String?, profile: String?, recreate: Bool) async throws -> AskarStore
+
+    func remove(specUri: String) async throws -> Bool
 }
 
 open class AskarStoreManager:
-    AskarStoreManagerProtocol {
+    AskarStoreManagerProtocol
+{
     fileprivate let pointer: UnsafeMutableRawPointer!
 
     /// Used to instantiate a [FFIObject] without an actual pointer, for fakes in tests, mostly.
-#if swift(>=5.8)
-    @_documentation(visibility: private)
-#endif
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
     public struct NoPointer {
         public init() {}
     }
@@ -2439,7 +2278,7 @@ open class AskarStoreManager:
     // TODO: We'd like this to be `private` but for Swifty reasons,
     // we can't implement `FfiConverter` without making this `required` and we can't
     // make it `required` without making it `public`.
-    required public init(unsafeFromRawPointer pointer: UnsafeMutableRawPointer) {
+    public required init(unsafeFromRawPointer pointer: UnsafeMutableRawPointer) {
         self.pointer = pointer
     }
 
@@ -2448,27 +2287,28 @@ open class AskarStoreManager:
     //
     // - Warning:
     //     Any object instantiated with this constructor cannot be passed to an actual Rust-backed object. Since there isn't a backing [Pointer] the FFI lower functions will crash.
-#if swift(>=5.8)
-    @_documentation(visibility: private)
-#endif
-    public init(noPointer: NoPointer) {
-        self.pointer = nil
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
+    public init(noPointer _: NoPointer) {
+        pointer = nil
     }
 
-#if swift(>=5.8)
-    @_documentation(visibility: private)
-#endif
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
     public func uniffiClonePointer() -> UnsafeMutableRawPointer {
         return try! rustCall { uniffi_askar_uniffi_fn_clone_askarstoremanager(self.pointer, $0) }
     }
-public convenience init() {
-    let pointer =
-        try! rustCall() {
-    uniffi_askar_uniffi_fn_constructor_askarstoremanager_new($0
-    )
-}
-    self.init(unsafeFromRawPointer: pointer)
-}
+
+    public convenience init() {
+        let pointer =
+            try! rustCall {
+                uniffi_askar_uniffi_fn_constructor_askarstoremanager_new($0
+                )
+            }
+        self.init(unsafeFromRawPointer: pointer)
+    }
 
     deinit {
         guard let pointer = pointer else {
@@ -2478,93 +2318,86 @@ public convenience init() {
         try! rustCall { uniffi_askar_uniffi_fn_free_askarstoremanager(pointer, $0) }
     }
 
-    
+    open func generateRawStoreKey(seed: String?) throws -> String {
+        return try FfiConverterString.lift(rustCallWithError(FfiConverterTypeErrorCode.lift) {
+            uniffi_askar_uniffi_fn_method_askarstoremanager_generate_raw_store_key(self.uniffiClonePointer(),
+                                                                                   FfiConverterOptionString.lower(seed), $0)
+        })
+    }
 
-    
-open func generateRawStoreKey(seed: String?)throws  -> String {
-    return try  FfiConverterString.lift(try rustCallWithError(FfiConverterTypeErrorCode.lift) {
-    uniffi_askar_uniffi_fn_method_askarstoremanager_generate_raw_store_key(self.uniffiClonePointer(),
-        FfiConverterOptionString.lower(seed),$0
-    )
-})
-}
-    
-open func migrateIndyWallet(specUri: String, walletName: String, walletKey: String, kdfLevel: String)async throws  {
-    return
-        try  await uniffiRustCallAsync(
-            rustFutureFunc: {
-                uniffi_askar_uniffi_fn_method_askarstoremanager_migrate_indy_wallet(
-                    self.uniffiClonePointer(),
-                    FfiConverterString.lower(specUri),FfiConverterString.lower(walletName),FfiConverterString.lower(walletKey),FfiConverterString.lower(kdfLevel)
-                )
-            },
-            pollFunc: ffi_askar_uniffi_rust_future_poll_void,
-            completeFunc: ffi_askar_uniffi_rust_future_complete_void,
-            freeFunc: ffi_askar_uniffi_rust_future_free_void,
-            liftFunc: { $0 },
-            errorHandler: FfiConverterTypeErrorCode.lift
-        )
-}
-    
-open func `open`(specUri: String, keyMethod: String?, passKey: String?, profile: String?)async throws  -> AskarStore {
-    return
-        try  await uniffiRustCallAsync(
-            rustFutureFunc: {
-                uniffi_askar_uniffi_fn_method_askarstoremanager_open(
-                    self.uniffiClonePointer(),
-                    FfiConverterString.lower(specUri),FfiConverterOptionString.lower(keyMethod),FfiConverterOptionString.lower(passKey),FfiConverterOptionString.lower(profile)
-                )
-            },
-            pollFunc: ffi_askar_uniffi_rust_future_poll_pointer,
-            completeFunc: ffi_askar_uniffi_rust_future_complete_pointer,
-            freeFunc: ffi_askar_uniffi_rust_future_free_pointer,
-            liftFunc: FfiConverterTypeAskarStore.lift,
-            errorHandler: FfiConverterTypeErrorCode.lift
-        )
-}
-    
-open func provision(specUri: String, keyMethod: String?, passKey: String?, profile: String?, recreate: Bool)async throws  -> AskarStore {
-    return
-        try  await uniffiRustCallAsync(
-            rustFutureFunc: {
-                uniffi_askar_uniffi_fn_method_askarstoremanager_provision(
-                    self.uniffiClonePointer(),
-                    FfiConverterString.lower(specUri),FfiConverterOptionString.lower(keyMethod),FfiConverterOptionString.lower(passKey),FfiConverterOptionString.lower(profile),FfiConverterBool.lower(recreate)
-                )
-            },
-            pollFunc: ffi_askar_uniffi_rust_future_poll_pointer,
-            completeFunc: ffi_askar_uniffi_rust_future_complete_pointer,
-            freeFunc: ffi_askar_uniffi_rust_future_free_pointer,
-            liftFunc: FfiConverterTypeAskarStore.lift,
-            errorHandler: FfiConverterTypeErrorCode.lift
-        )
-}
-    
-open func remove(specUri: String)async throws  -> Bool {
-    return
-        try  await uniffiRustCallAsync(
-            rustFutureFunc: {
-                uniffi_askar_uniffi_fn_method_askarstoremanager_remove(
-                    self.uniffiClonePointer(),
-                    FfiConverterString.lower(specUri)
-                )
-            },
-            pollFunc: ffi_askar_uniffi_rust_future_poll_i8,
-            completeFunc: ffi_askar_uniffi_rust_future_complete_i8,
-            freeFunc: ffi_askar_uniffi_rust_future_free_i8,
-            liftFunc: FfiConverterBool.lift,
-            errorHandler: FfiConverterTypeErrorCode.lift
-        )
-}
-    
+    open func migrateIndyWallet(specUri: String, walletName: String, walletKey: String, kdfLevel: String) async throws {
+        return
+            try await uniffiRustCallAsync(
+                rustFutureFunc: {
+                    uniffi_askar_uniffi_fn_method_askarstoremanager_migrate_indy_wallet(
+                        self.uniffiClonePointer(),
+                        FfiConverterString.lower(specUri), FfiConverterString.lower(walletName), FfiConverterString.lower(walletKey), FfiConverterString.lower(kdfLevel)
+                    )
+                },
+                pollFunc: ffi_askar_uniffi_rust_future_poll_void,
+                completeFunc: ffi_askar_uniffi_rust_future_complete_void,
+                freeFunc: ffi_askar_uniffi_rust_future_free_void,
+                liftFunc: { $0 },
+                errorHandler: FfiConverterTypeErrorCode.lift
+            )
+    }
 
+    open func open(specUri: String, keyMethod: String?, passKey: String?, profile: String?) async throws -> AskarStore {
+        return
+            try await uniffiRustCallAsync(
+                rustFutureFunc: {
+                    uniffi_askar_uniffi_fn_method_askarstoremanager_open(
+                        self.uniffiClonePointer(),
+                        FfiConverterString.lower(specUri), FfiConverterOptionString.lower(keyMethod), FfiConverterOptionString.lower(passKey), FfiConverterOptionString.lower(profile)
+                    )
+                },
+                pollFunc: ffi_askar_uniffi_rust_future_poll_pointer,
+                completeFunc: ffi_askar_uniffi_rust_future_complete_pointer,
+                freeFunc: ffi_askar_uniffi_rust_future_free_pointer,
+                liftFunc: FfiConverterTypeAskarStore.lift,
+                errorHandler: FfiConverterTypeErrorCode.lift
+            )
+    }
+
+    open func provision(specUri: String, keyMethod: String?, passKey: String?, profile: String?, recreate: Bool) async throws -> AskarStore {
+        return
+            try await uniffiRustCallAsync(
+                rustFutureFunc: {
+                    uniffi_askar_uniffi_fn_method_askarstoremanager_provision(
+                        self.uniffiClonePointer(),
+                        FfiConverterString.lower(specUri), FfiConverterOptionString.lower(keyMethod), FfiConverterOptionString.lower(passKey), FfiConverterOptionString.lower(profile), FfiConverterBool.lower(recreate)
+                    )
+                },
+                pollFunc: ffi_askar_uniffi_rust_future_poll_pointer,
+                completeFunc: ffi_askar_uniffi_rust_future_complete_pointer,
+                freeFunc: ffi_askar_uniffi_rust_future_free_pointer,
+                liftFunc: FfiConverterTypeAskarStore.lift,
+                errorHandler: FfiConverterTypeErrorCode.lift
+            )
+    }
+
+    open func remove(specUri: String) async throws -> Bool {
+        return
+            try await uniffiRustCallAsync(
+                rustFutureFunc: {
+                    uniffi_askar_uniffi_fn_method_askarstoremanager_remove(
+                        self.uniffiClonePointer(),
+                        FfiConverterString.lower(specUri)
+                    )
+                },
+                pollFunc: ffi_askar_uniffi_rust_future_poll_i8,
+                completeFunc: ffi_askar_uniffi_rust_future_complete_i8,
+                freeFunc: ffi_askar_uniffi_rust_future_free_i8,
+                liftFunc: FfiConverterBool.lift,
+                errorHandler: FfiConverterTypeErrorCode.lift
+            )
+    }
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public struct FfiConverterTypeAskarStoreManager: FfiConverter {
-
     typealias FfiType = UnsafeMutableRawPointer
     typealias SwiftType = AskarStoreManager
 
@@ -2581,7 +2414,7 @@ public struct FfiConverterTypeAskarStoreManager: FfiConverter {
         // The Rust code won't compile if a pointer won't fit in a UInt64.
         // We have to go via `UInt` because that's the thing that's the size of a pointer.
         let ptr = UnsafeMutableRawPointer(bitPattern: UInt(truncatingIfNeeded: v))
-        if (ptr == nil) {
+        if ptr == nil {
             throw UniffiInternalError.unexpectedNullPointer
         }
         return try lift(ptr!)
@@ -2594,46 +2427,39 @@ public struct FfiConverterTypeAskarStoreManager: FfiConverter {
     }
 }
 
-
-
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeAskarStoreManager_lift(_ pointer: UnsafeMutableRawPointer) throws -> AskarStoreManager {
     return try FfiConverterTypeAskarStoreManager.lift(pointer)
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeAskarStoreManager_lower(_ value: AskarStoreManager) -> UnsafeMutableRawPointer {
     return FfiConverterTypeAskarStoreManager.lower(value)
 }
 
+public protocol EncryptedBufferProtocol: AnyObject {
+    func ciphertext() -> Data
 
+    func ciphertextTag() -> Data
 
+    func nonce() -> Data
 
-public protocol EncryptedBufferProtocol : AnyObject {
-    
-    func ciphertext()  -> Data
-    
-    func ciphertextTag()  -> Data
-    
-    func nonce()  -> Data
-    
-    func tag()  -> Data
-    
+    func tag() -> Data
 }
 
 open class EncryptedBuffer:
-    EncryptedBufferProtocol {
+    EncryptedBufferProtocol
+{
     fileprivate let pointer: UnsafeMutableRawPointer!
 
     /// Used to instantiate a [FFIObject] without an actual pointer, for fakes in tests, mostly.
-#if swift(>=5.8)
-    @_documentation(visibility: private)
-#endif
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
     public struct NoPointer {
         public init() {}
     }
@@ -2641,7 +2467,7 @@ open class EncryptedBuffer:
     // TODO: We'd like this to be `private` but for Swifty reasons,
     // we can't implement `FfiConverter` without making this `required` and we can't
     // make it `required` without making it `public`.
-    required public init(unsafeFromRawPointer pointer: UnsafeMutableRawPointer) {
+    public required init(unsafeFromRawPointer pointer: UnsafeMutableRawPointer) {
         self.pointer = pointer
     }
 
@@ -2650,19 +2476,20 @@ open class EncryptedBuffer:
     //
     // - Warning:
     //     Any object instantiated with this constructor cannot be passed to an actual Rust-backed object. Since there isn't a backing [Pointer] the FFI lower functions will crash.
-#if swift(>=5.8)
-    @_documentation(visibility: private)
-#endif
-    public init(noPointer: NoPointer) {
-        self.pointer = nil
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
+    public init(noPointer _: NoPointer) {
+        pointer = nil
     }
 
-#if swift(>=5.8)
-    @_documentation(visibility: private)
-#endif
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
     public func uniffiClonePointer() -> UnsafeMutableRawPointer {
         return try! rustCall { uniffi_askar_uniffi_fn_clone_encryptedbuffer(self.pointer, $0) }
     }
+
     // No primary constructor declared for this class.
 
     deinit {
@@ -2673,45 +2500,35 @@ open class EncryptedBuffer:
         try! rustCall { uniffi_askar_uniffi_fn_free_encryptedbuffer(pointer, $0) }
     }
 
-    
+    open func ciphertext() -> Data {
+        return try! FfiConverterData.lift(try! rustCall {
+            uniffi_askar_uniffi_fn_method_encryptedbuffer_ciphertext(self.uniffiClonePointer(), $0)
+        })
+    }
 
-    
-open func ciphertext() -> Data {
-    return try!  FfiConverterData.lift(try! rustCall() {
-    uniffi_askar_uniffi_fn_method_encryptedbuffer_ciphertext(self.uniffiClonePointer(),$0
-    )
-})
-}
-    
-open func ciphertextTag() -> Data {
-    return try!  FfiConverterData.lift(try! rustCall() {
-    uniffi_askar_uniffi_fn_method_encryptedbuffer_ciphertext_tag(self.uniffiClonePointer(),$0
-    )
-})
-}
-    
-open func nonce() -> Data {
-    return try!  FfiConverterData.lift(try! rustCall() {
-    uniffi_askar_uniffi_fn_method_encryptedbuffer_nonce(self.uniffiClonePointer(),$0
-    )
-})
-}
-    
-open func tag() -> Data {
-    return try!  FfiConverterData.lift(try! rustCall() {
-    uniffi_askar_uniffi_fn_method_encryptedbuffer_tag(self.uniffiClonePointer(),$0
-    )
-})
-}
-    
+    open func ciphertextTag() -> Data {
+        return try! FfiConverterData.lift(try! rustCall {
+            uniffi_askar_uniffi_fn_method_encryptedbuffer_ciphertext_tag(self.uniffiClonePointer(), $0)
+        })
+    }
 
+    open func nonce() -> Data {
+        return try! FfiConverterData.lift(try! rustCall {
+            uniffi_askar_uniffi_fn_method_encryptedbuffer_nonce(self.uniffiClonePointer(), $0)
+        })
+    }
+
+    open func tag() -> Data {
+        return try! FfiConverterData.lift(try! rustCall {
+            uniffi_askar_uniffi_fn_method_encryptedbuffer_tag(self.uniffiClonePointer(), $0)
+        })
+    }
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public struct FfiConverterTypeEncryptedBuffer: FfiConverter {
-
     typealias FfiType = UnsafeMutableRawPointer
     typealias SwiftType = EncryptedBuffer
 
@@ -2728,7 +2545,7 @@ public struct FfiConverterTypeEncryptedBuffer: FfiConverter {
         // The Rust code won't compile if a pointer won't fit in a UInt64.
         // We have to go via `UInt` because that's the thing that's the size of a pointer.
         let ptr = UnsafeMutableRawPointer(bitPattern: UInt(truncatingIfNeeded: v))
-        if (ptr == nil) {
+        if ptr == nil {
             throw UniffiInternalError.unexpectedNullPointer
         }
         return try lift(ptr!)
@@ -2741,50 +2558,43 @@ public struct FfiConverterTypeEncryptedBuffer: FfiConverter {
     }
 }
 
-
-
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeEncryptedBuffer_lift(_ pointer: UnsafeMutableRawPointer) throws -> EncryptedBuffer {
     return try FfiConverterTypeEncryptedBuffer.lift(pointer)
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeEncryptedBuffer_lower(_ value: EncryptedBuffer) -> UnsafeMutableRawPointer {
     return FfiConverterTypeEncryptedBuffer.lower(value)
 }
 
+public protocol LocalKeyFactoryProtocol: AnyObject {
+    func fromJwk(jwk: String) throws -> AskarLocalKey
 
+    func fromJwkSlice(jwk: Data) throws -> AskarLocalKey
 
+    func fromPublicBytes(alg: AskarKeyAlg, bytes: Data) throws -> AskarLocalKey
 
-public protocol LocalKeyFactoryProtocol : AnyObject {
-    
-    func fromJwk(jwk: String) throws  -> AskarLocalKey
-    
-    func fromJwkSlice(jwk: Data) throws  -> AskarLocalKey
-    
-    func fromPublicBytes(alg: AskarKeyAlg, bytes: Data) throws  -> AskarLocalKey
-    
-    func fromSecretBytes(alg: AskarKeyAlg, bytes: Data) throws  -> AskarLocalKey
-    
-    func fromSeed(alg: AskarKeyAlg, seed: Data, method: SeedMethod?) throws  -> AskarLocalKey
-    
-    func generate(alg: AskarKeyAlg, ephemeral: Bool) throws  -> AskarLocalKey
-    
+    func fromSecretBytes(alg: AskarKeyAlg, bytes: Data) throws -> AskarLocalKey
+
+    func fromSeed(alg: AskarKeyAlg, seed: Data, method: SeedMethod?) throws -> AskarLocalKey
+
+    func generate(alg: AskarKeyAlg, ephemeral: Bool) throws -> AskarLocalKey
 }
 
 open class LocalKeyFactory:
-    LocalKeyFactoryProtocol {
+    LocalKeyFactoryProtocol
+{
     fileprivate let pointer: UnsafeMutableRawPointer!
 
     /// Used to instantiate a [FFIObject] without an actual pointer, for fakes in tests, mostly.
-#if swift(>=5.8)
-    @_documentation(visibility: private)
-#endif
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
     public struct NoPointer {
         public init() {}
     }
@@ -2792,7 +2602,7 @@ open class LocalKeyFactory:
     // TODO: We'd like this to be `private` but for Swifty reasons,
     // we can't implement `FfiConverter` without making this `required` and we can't
     // make it `required` without making it `public`.
-    required public init(unsafeFromRawPointer pointer: UnsafeMutableRawPointer) {
+    public required init(unsafeFromRawPointer pointer: UnsafeMutableRawPointer) {
         self.pointer = pointer
     }
 
@@ -2801,27 +2611,28 @@ open class LocalKeyFactory:
     //
     // - Warning:
     //     Any object instantiated with this constructor cannot be passed to an actual Rust-backed object. Since there isn't a backing [Pointer] the FFI lower functions will crash.
-#if swift(>=5.8)
-    @_documentation(visibility: private)
-#endif
-    public init(noPointer: NoPointer) {
-        self.pointer = nil
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
+    public init(noPointer _: NoPointer) {
+        pointer = nil
     }
 
-#if swift(>=5.8)
-    @_documentation(visibility: private)
-#endif
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
     public func uniffiClonePointer() -> UnsafeMutableRawPointer {
         return try! rustCall { uniffi_askar_uniffi_fn_clone_localkeyfactory(self.pointer, $0) }
     }
-public convenience init() {
-    let pointer =
-        try! rustCall() {
-    uniffi_askar_uniffi_fn_constructor_localkeyfactory_new($0
-    )
-}
-    self.init(unsafeFromRawPointer: pointer)
-}
+
+    public convenience init() {
+        let pointer =
+            try! rustCall {
+                uniffi_askar_uniffi_fn_constructor_localkeyfactory_new($0
+                )
+            }
+        self.init(unsafeFromRawPointer: pointer)
+    }
 
     deinit {
         guard let pointer = pointer else {
@@ -2831,70 +2642,58 @@ public convenience init() {
         try! rustCall { uniffi_askar_uniffi_fn_free_localkeyfactory(pointer, $0) }
     }
 
-    
+    open func fromJwk(jwk: String) throws -> AskarLocalKey {
+        return try FfiConverterTypeAskarLocalKey.lift(rustCallWithError(FfiConverterTypeErrorCode.lift) {
+            uniffi_askar_uniffi_fn_method_localkeyfactory_from_jwk(self.uniffiClonePointer(),
+                                                                   FfiConverterString.lower(jwk), $0)
+        })
+    }
 
-    
-open func fromJwk(jwk: String)throws  -> AskarLocalKey {
-    return try  FfiConverterTypeAskarLocalKey.lift(try rustCallWithError(FfiConverterTypeErrorCode.lift) {
-    uniffi_askar_uniffi_fn_method_localkeyfactory_from_jwk(self.uniffiClonePointer(),
-        FfiConverterString.lower(jwk),$0
-    )
-})
-}
-    
-open func fromJwkSlice(jwk: Data)throws  -> AskarLocalKey {
-    return try  FfiConverterTypeAskarLocalKey.lift(try rustCallWithError(FfiConverterTypeErrorCode.lift) {
-    uniffi_askar_uniffi_fn_method_localkeyfactory_from_jwk_slice(self.uniffiClonePointer(),
-        FfiConverterData.lower(jwk),$0
-    )
-})
-}
-    
-open func fromPublicBytes(alg: AskarKeyAlg, bytes: Data)throws  -> AskarLocalKey {
-    return try  FfiConverterTypeAskarLocalKey.lift(try rustCallWithError(FfiConverterTypeErrorCode.lift) {
-    uniffi_askar_uniffi_fn_method_localkeyfactory_from_public_bytes(self.uniffiClonePointer(),
-        FfiConverterTypeAskarKeyAlg.lower(alg),
-        FfiConverterData.lower(bytes),$0
-    )
-})
-}
-    
-open func fromSecretBytes(alg: AskarKeyAlg, bytes: Data)throws  -> AskarLocalKey {
-    return try  FfiConverterTypeAskarLocalKey.lift(try rustCallWithError(FfiConverterTypeErrorCode.lift) {
-    uniffi_askar_uniffi_fn_method_localkeyfactory_from_secret_bytes(self.uniffiClonePointer(),
-        FfiConverterTypeAskarKeyAlg.lower(alg),
-        FfiConverterData.lower(bytes),$0
-    )
-})
-}
-    
-open func fromSeed(alg: AskarKeyAlg, seed: Data, method: SeedMethod?)throws  -> AskarLocalKey {
-    return try  FfiConverterTypeAskarLocalKey.lift(try rustCallWithError(FfiConverterTypeErrorCode.lift) {
-    uniffi_askar_uniffi_fn_method_localkeyfactory_from_seed(self.uniffiClonePointer(),
-        FfiConverterTypeAskarKeyAlg.lower(alg),
-        FfiConverterData.lower(seed),
-        FfiConverterOptionTypeSeedMethod.lower(method),$0
-    )
-})
-}
-    
-open func generate(alg: AskarKeyAlg, ephemeral: Bool)throws  -> AskarLocalKey {
-    return try  FfiConverterTypeAskarLocalKey.lift(try rustCallWithError(FfiConverterTypeErrorCode.lift) {
-    uniffi_askar_uniffi_fn_method_localkeyfactory_generate(self.uniffiClonePointer(),
-        FfiConverterTypeAskarKeyAlg.lower(alg),
-        FfiConverterBool.lower(ephemeral),$0
-    )
-})
-}
-    
+    open func fromJwkSlice(jwk: Data) throws -> AskarLocalKey {
+        return try FfiConverterTypeAskarLocalKey.lift(rustCallWithError(FfiConverterTypeErrorCode.lift) {
+            uniffi_askar_uniffi_fn_method_localkeyfactory_from_jwk_slice(self.uniffiClonePointer(),
+                                                                         FfiConverterData.lower(jwk), $0)
+        })
+    }
 
+    open func fromPublicBytes(alg: AskarKeyAlg, bytes: Data) throws -> AskarLocalKey {
+        return try FfiConverterTypeAskarLocalKey.lift(rustCallWithError(FfiConverterTypeErrorCode.lift) {
+            uniffi_askar_uniffi_fn_method_localkeyfactory_from_public_bytes(self.uniffiClonePointer(),
+                                                                            FfiConverterTypeAskarKeyAlg.lower(alg),
+                                                                            FfiConverterData.lower(bytes), $0)
+        })
+    }
+
+    open func fromSecretBytes(alg: AskarKeyAlg, bytes: Data) throws -> AskarLocalKey {
+        return try FfiConverterTypeAskarLocalKey.lift(rustCallWithError(FfiConverterTypeErrorCode.lift) {
+            uniffi_askar_uniffi_fn_method_localkeyfactory_from_secret_bytes(self.uniffiClonePointer(),
+                                                                            FfiConverterTypeAskarKeyAlg.lower(alg),
+                                                                            FfiConverterData.lower(bytes), $0)
+        })
+    }
+
+    open func fromSeed(alg: AskarKeyAlg, seed: Data, method: SeedMethod?) throws -> AskarLocalKey {
+        return try FfiConverterTypeAskarLocalKey.lift(rustCallWithError(FfiConverterTypeErrorCode.lift) {
+            uniffi_askar_uniffi_fn_method_localkeyfactory_from_seed(self.uniffiClonePointer(),
+                                                                    FfiConverterTypeAskarKeyAlg.lower(alg),
+                                                                    FfiConverterData.lower(seed),
+                                                                    FfiConverterOptionTypeSeedMethod.lower(method), $0)
+        })
+    }
+
+    open func generate(alg: AskarKeyAlg, ephemeral: Bool) throws -> AskarLocalKey {
+        return try FfiConverterTypeAskarLocalKey.lift(rustCallWithError(FfiConverterTypeErrorCode.lift) {
+            uniffi_askar_uniffi_fn_method_localkeyfactory_generate(self.uniffiClonePointer(),
+                                                                   FfiConverterTypeAskarKeyAlg.lower(alg),
+                                                                   FfiConverterBool.lower(ephemeral), $0)
+        })
+    }
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public struct FfiConverterTypeLocalKeyFactory: FfiConverter {
-
     typealias FfiType = UnsafeMutableRawPointer
     typealias SwiftType = LocalKeyFactory
 
@@ -2911,7 +2710,7 @@ public struct FfiConverterTypeLocalKeyFactory: FfiConverter {
         // The Rust code won't compile if a pointer won't fit in a UInt64.
         // We have to go via `UInt` because that's the thing that's the size of a pointer.
         let ptr = UnsafeMutableRawPointer(bitPattern: UInt(truncatingIfNeeded: v))
-        if (ptr == nil) {
+        if ptr == nil {
             throw UniffiInternalError.unexpectedNullPointer
         }
         return try lift(ptr!)
@@ -2924,23 +2723,19 @@ public struct FfiConverterTypeLocalKeyFactory: FfiConverter {
     }
 }
 
-
-
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeLocalKeyFactory_lift(_ pointer: UnsafeMutableRawPointer) throws -> LocalKeyFactory {
     return try FfiConverterTypeLocalKeyFactory.lift(pointer)
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeLocalKeyFactory_lower(_ value: LocalKeyFactory) -> UnsafeMutableRawPointer {
     return FfiConverterTypeLocalKeyFactory.lower(value)
 }
-
 
 public struct AeadParams {
     public var nonceLength: Int32
@@ -2954,10 +2749,8 @@ public struct AeadParams {
     }
 }
 
-
-
 extension AeadParams: Equatable, Hashable {
-    public static func ==(lhs: AeadParams, rhs: AeadParams) -> Bool {
+    public static func == (lhs: AeadParams, rhs: AeadParams) -> Bool {
         if lhs.nonceLength != rhs.nonceLength {
             return false
         }
@@ -2973,17 +2766,16 @@ extension AeadParams: Equatable, Hashable {
     }
 }
 
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public struct FfiConverterTypeAeadParams: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> AeadParams {
         return
             try AeadParams(
-                nonceLength: FfiConverterInt32.read(from: &buf), 
+                nonceLength: FfiConverterInt32.read(from: &buf),
                 tagLength: FfiConverterInt32.read(from: &buf)
-        )
+            )
     }
 
     public static func write(_ value: AeadParams, into buf: inout [UInt8]) {
@@ -2992,16 +2784,15 @@ public struct FfiConverterTypeAeadParams: FfiConverterRustBuffer {
     }
 }
 
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeAeadParams_lift(_ buf: RustBuffer) throws -> AeadParams {
     return try FfiConverterTypeAeadParams.lift(buf)
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeAeadParams_lower(_ value: AeadParams) -> RustBuffer {
     return FfiConverterTypeAeadParams.lower(value)
@@ -3011,15 +2802,13 @@ public func FfiConverterTypeAeadParams_lower(_ value: AeadParams) -> RustBuffer 
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
 
 public enum AskarEntryOperation {
-    
     case insert
     case replace
     case remove
 }
 
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public struct FfiConverterTypeAskarEntryOperation: FfiConverterRustBuffer {
     typealias SwiftType = AskarEntryOperation
@@ -3027,62 +2816,50 @@ public struct FfiConverterTypeAskarEntryOperation: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> AskarEntryOperation {
         let variant: Int32 = try readInt(&buf)
         switch variant {
-        
         case 1: return .insert
-        
+
         case 2: return .replace
-        
+
         case 3: return .remove
-        
+
         default: throw UniffiInternalError.unexpectedEnumCase
         }
     }
 
     public static func write(_ value: AskarEntryOperation, into buf: inout [UInt8]) {
         switch value {
-        
-        
         case .insert:
             writeInt(&buf, Int32(1))
-        
-        
+
         case .replace:
             writeInt(&buf, Int32(2))
-        
-        
+
         case .remove:
             writeInt(&buf, Int32(3))
-        
         }
     }
 }
 
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeAskarEntryOperation_lift(_ buf: RustBuffer) throws -> AskarEntryOperation {
     return try FfiConverterTypeAskarEntryOperation.lift(buf)
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeAskarEntryOperation_lower(_ value: AskarEntryOperation) -> RustBuffer {
     return FfiConverterTypeAskarEntryOperation.lower(value)
 }
 
-
-
 extension AskarEntryOperation: Equatable, Hashable {}
-
-
 
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
 
 public enum AskarKeyAlg {
-    
     case a128Gcm
     case a256Gcm
     case a128CbcHs256
@@ -3101,9 +2878,8 @@ public enum AskarKeyAlg {
     case p384
 }
 
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public struct FfiConverterTypeAskarKeyAlg: FfiConverterRustBuffer {
     typealias SwiftType = AskarKeyAlg
@@ -3111,140 +2887,112 @@ public struct FfiConverterTypeAskarKeyAlg: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> AskarKeyAlg {
         let variant: Int32 = try readInt(&buf)
         switch variant {
-        
         case 1: return .a128Gcm
-        
+
         case 2: return .a256Gcm
-        
+
         case 3: return .a128CbcHs256
-        
+
         case 4: return .a256CbcHs512
-        
+
         case 5: return .a128Kw
-        
+
         case 6: return .a256Kw
-        
+
         case 7: return .bls12381g1
-        
+
         case 8: return .bls12381g2
-        
+
         case 9: return .bls12381g1g2
-        
+
         case 10: return .c20p
-        
+
         case 11: return .xc20p
-        
+
         case 12: return .ed25519
-        
+
         case 13: return .x25519
-        
+
         case 14: return .k256
-        
+
         case 15: return .p256
-        
+
         case 16: return .p384
-        
+
         default: throw UniffiInternalError.unexpectedEnumCase
         }
     }
 
     public static func write(_ value: AskarKeyAlg, into buf: inout [UInt8]) {
         switch value {
-        
-        
         case .a128Gcm:
             writeInt(&buf, Int32(1))
-        
-        
+
         case .a256Gcm:
             writeInt(&buf, Int32(2))
-        
-        
+
         case .a128CbcHs256:
             writeInt(&buf, Int32(3))
-        
-        
+
         case .a256CbcHs512:
             writeInt(&buf, Int32(4))
-        
-        
+
         case .a128Kw:
             writeInt(&buf, Int32(5))
-        
-        
+
         case .a256Kw:
             writeInt(&buf, Int32(6))
-        
-        
+
         case .bls12381g1:
             writeInt(&buf, Int32(7))
-        
-        
+
         case .bls12381g2:
             writeInt(&buf, Int32(8))
-        
-        
+
         case .bls12381g1g2:
             writeInt(&buf, Int32(9))
-        
-        
+
         case .c20p:
             writeInt(&buf, Int32(10))
-        
-        
+
         case .xc20p:
             writeInt(&buf, Int32(11))
-        
-        
+
         case .ed25519:
             writeInt(&buf, Int32(12))
-        
-        
+
         case .x25519:
             writeInt(&buf, Int32(13))
-        
-        
+
         case .k256:
             writeInt(&buf, Int32(14))
-        
-        
+
         case .p256:
             writeInt(&buf, Int32(15))
-        
-        
+
         case .p384:
             writeInt(&buf, Int32(16))
-        
         }
     }
 }
 
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeAskarKeyAlg_lift(_ buf: RustBuffer) throws -> AskarKeyAlg {
     return try FfiConverterTypeAskarKeyAlg.lift(buf)
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeAskarKeyAlg_lower(_ value: AskarKeyAlg) -> RustBuffer {
     return FfiConverterTypeAskarKeyAlg.lower(value)
 }
 
-
-
 extension AskarKeyAlg: Equatable, Hashable {}
 
-
-
-
 public enum ErrorCode {
-
-    
-    
     case Backend(errorMessage: String
     )
     case Busy(errorMessage: String
@@ -3265,9 +3013,8 @@ public enum ErrorCode {
     )
 }
 
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public struct FfiConverterTypeErrorCode: FfiConverterRustBuffer {
     typealias SwiftType = ErrorCode
@@ -3275,97 +3022,78 @@ public struct FfiConverterTypeErrorCode: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> ErrorCode {
         let variant: Int32 = try readInt(&buf)
         switch variant {
-
-        
-
-        
-        case 1: return .Backend(
-            errorMessage: try FfiConverterString.read(from: &buf)
+        case 1: return try .Backend(
+                errorMessage: FfiConverterString.read(from: &buf)
             )
-        case 2: return .Busy(
-            errorMessage: try FfiConverterString.read(from: &buf)
+        case 2: return try .Busy(
+                errorMessage: FfiConverterString.read(from: &buf)
             )
-        case 3: return .Duplicate(
-            errorMessage: try FfiConverterString.read(from: &buf)
+        case 3: return try .Duplicate(
+                errorMessage: FfiConverterString.read(from: &buf)
             )
-        case 4: return .Encryption(
-            errorMessage: try FfiConverterString.read(from: &buf)
+        case 4: return try .Encryption(
+                errorMessage: FfiConverterString.read(from: &buf)
             )
-        case 5: return .Input(
-            errorMessage: try FfiConverterString.read(from: &buf)
+        case 5: return try .Input(
+                errorMessage: FfiConverterString.read(from: &buf)
             )
-        case 6: return .NotFound(
-            errorMessage: try FfiConverterString.read(from: &buf)
+        case 6: return try .NotFound(
+                errorMessage: FfiConverterString.read(from: &buf)
             )
-        case 7: return .Unexpected(
-            errorMessage: try FfiConverterString.read(from: &buf)
+        case 7: return try .Unexpected(
+                errorMessage: FfiConverterString.read(from: &buf)
             )
-        case 8: return .Unsupported(
-            errorMessage: try FfiConverterString.read(from: &buf)
+        case 8: return try .Unsupported(
+                errorMessage: FfiConverterString.read(from: &buf)
             )
-        case 9: return .Custom(
-            errorMessage: try FfiConverterString.read(from: &buf)
+        case 9: return try .Custom(
+                errorMessage: FfiConverterString.read(from: &buf)
             )
 
-         default: throw UniffiInternalError.unexpectedEnumCase
+        default: throw UniffiInternalError.unexpectedEnumCase
         }
     }
 
     public static func write(_ value: ErrorCode, into buf: inout [UInt8]) {
         switch value {
-
-        
-
-        
-        
         case let .Backend(errorMessage):
             writeInt(&buf, Int32(1))
             FfiConverterString.write(errorMessage, into: &buf)
-            
-        
+
         case let .Busy(errorMessage):
             writeInt(&buf, Int32(2))
             FfiConverterString.write(errorMessage, into: &buf)
-            
-        
+
         case let .Duplicate(errorMessage):
             writeInt(&buf, Int32(3))
             FfiConverterString.write(errorMessage, into: &buf)
-            
-        
+
         case let .Encryption(errorMessage):
             writeInt(&buf, Int32(4))
             FfiConverterString.write(errorMessage, into: &buf)
-            
-        
+
         case let .Input(errorMessage):
             writeInt(&buf, Int32(5))
             FfiConverterString.write(errorMessage, into: &buf)
-            
-        
+
         case let .NotFound(errorMessage):
             writeInt(&buf, Int32(6))
             FfiConverterString.write(errorMessage, into: &buf)
-            
-        
+
         case let .Unexpected(errorMessage):
             writeInt(&buf, Int32(7))
             FfiConverterString.write(errorMessage, into: &buf)
-            
-        
+
         case let .Unsupported(errorMessage):
             writeInt(&buf, Int32(8))
             FfiConverterString.write(errorMessage, into: &buf)
-            
-        
+
         case let .Custom(errorMessage):
             writeInt(&buf, Int32(9))
             FfiConverterString.write(errorMessage, into: &buf)
-            
         }
     }
 }
-
 
 extension ErrorCode: Equatable, Hashable {}
 
@@ -3379,13 +3107,11 @@ extension ErrorCode: Foundation.LocalizedError {
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
 
 public enum SeedMethod {
-    
     case blsKeyGen
 }
 
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public struct FfiConverterTypeSeedMethod: FfiConverterRustBuffer {
     typealias SwiftType = SeedMethod
@@ -3393,49 +3119,40 @@ public struct FfiConverterTypeSeedMethod: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SeedMethod {
         let variant: Int32 = try readInt(&buf)
         switch variant {
-        
         case 1: return .blsKeyGen
-        
+
         default: throw UniffiInternalError.unexpectedEnumCase
         }
     }
 
     public static func write(_ value: SeedMethod, into buf: inout [UInt8]) {
         switch value {
-        
-        
         case .blsKeyGen:
             writeInt(&buf, Int32(1))
-        
         }
     }
 }
 
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeSeedMethod_lift(_ buf: RustBuffer) throws -> SeedMethod {
     return try FfiConverterTypeSeedMethod.lift(buf)
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
 public func FfiConverterTypeSeedMethod_lower(_ value: SeedMethod) -> RustBuffer {
     return FfiConverterTypeSeedMethod.lower(value)
 }
 
-
-
 extension SeedMethod: Equatable, Hashable {}
 
-
-
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
-fileprivate struct FfiConverterOptionInt64: FfiConverterRustBuffer {
+private struct FfiConverterOptionInt64: FfiConverterRustBuffer {
     typealias SwiftType = Int64?
 
     public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
@@ -3457,9 +3174,9 @@ fileprivate struct FfiConverterOptionInt64: FfiConverterRustBuffer {
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
-fileprivate struct FfiConverterOptionString: FfiConverterRustBuffer {
+private struct FfiConverterOptionString: FfiConverterRustBuffer {
     typealias SwiftType = String?
 
     public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
@@ -3481,9 +3198,9 @@ fileprivate struct FfiConverterOptionString: FfiConverterRustBuffer {
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
-fileprivate struct FfiConverterOptionData: FfiConverterRustBuffer {
+private struct FfiConverterOptionData: FfiConverterRustBuffer {
     typealias SwiftType = Data?
 
     public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
@@ -3505,9 +3222,9 @@ fileprivate struct FfiConverterOptionData: FfiConverterRustBuffer {
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
-fileprivate struct FfiConverterOptionTypeAskarEntry: FfiConverterRustBuffer {
+private struct FfiConverterOptionTypeAskarEntry: FfiConverterRustBuffer {
     typealias SwiftType = AskarEntry?
 
     public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
@@ -3529,9 +3246,9 @@ fileprivate struct FfiConverterOptionTypeAskarEntry: FfiConverterRustBuffer {
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
-fileprivate struct FfiConverterOptionTypeAskarKeyEntry: FfiConverterRustBuffer {
+private struct FfiConverterOptionTypeAskarKeyEntry: FfiConverterRustBuffer {
     typealias SwiftType = AskarKeyEntry?
 
     public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
@@ -3553,9 +3270,9 @@ fileprivate struct FfiConverterOptionTypeAskarKeyEntry: FfiConverterRustBuffer {
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
-fileprivate struct FfiConverterOptionTypeAskarKeyAlg: FfiConverterRustBuffer {
+private struct FfiConverterOptionTypeAskarKeyAlg: FfiConverterRustBuffer {
     typealias SwiftType = AskarKeyAlg?
 
     public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
@@ -3577,9 +3294,9 @@ fileprivate struct FfiConverterOptionTypeAskarKeyAlg: FfiConverterRustBuffer {
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
-fileprivate struct FfiConverterOptionTypeSeedMethod: FfiConverterRustBuffer {
+private struct FfiConverterOptionTypeSeedMethod: FfiConverterRustBuffer {
     typealias SwiftType = SeedMethod?
 
     public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
@@ -3601,9 +3318,9 @@ fileprivate struct FfiConverterOptionTypeSeedMethod: FfiConverterRustBuffer {
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
-fileprivate struct FfiConverterOptionSequenceTypeAskarEntry: FfiConverterRustBuffer {
+private struct FfiConverterOptionSequenceTypeAskarEntry: FfiConverterRustBuffer {
     typealias SwiftType = [AskarEntry]?
 
     public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
@@ -3625,9 +3342,9 @@ fileprivate struct FfiConverterOptionSequenceTypeAskarEntry: FfiConverterRustBuf
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
-fileprivate struct FfiConverterSequenceString: FfiConverterRustBuffer {
+private struct FfiConverterSequenceString: FfiConverterRustBuffer {
     typealias SwiftType = [String]
 
     public static func write(_ value: [String], into buf: inout [UInt8]) {
@@ -3643,16 +3360,16 @@ fileprivate struct FfiConverterSequenceString: FfiConverterRustBuffer {
         var seq = [String]()
         seq.reserveCapacity(Int(len))
         for _ in 0 ..< len {
-            seq.append(try FfiConverterString.read(from: &buf))
+            try seq.append(FfiConverterString.read(from: &buf))
         }
         return seq
     }
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
-fileprivate struct FfiConverterSequenceTypeAskarEntry: FfiConverterRustBuffer {
+private struct FfiConverterSequenceTypeAskarEntry: FfiConverterRustBuffer {
     typealias SwiftType = [AskarEntry]
 
     public static func write(_ value: [AskarEntry], into buf: inout [UInt8]) {
@@ -3668,16 +3385,16 @@ fileprivate struct FfiConverterSequenceTypeAskarEntry: FfiConverterRustBuffer {
         var seq = [AskarEntry]()
         seq.reserveCapacity(Int(len))
         for _ in 0 ..< len {
-            seq.append(try FfiConverterTypeAskarEntry.read(from: &buf))
+            try seq.append(FfiConverterTypeAskarEntry.read(from: &buf))
         }
         return seq
     }
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
-fileprivate struct FfiConverterSequenceTypeAskarKeyEntry: FfiConverterRustBuffer {
+private struct FfiConverterSequenceTypeAskarKeyEntry: FfiConverterRustBuffer {
     typealias SwiftType = [AskarKeyEntry]
 
     public static func write(_ value: [AskarKeyEntry], into buf: inout [UInt8]) {
@@ -3693,16 +3410,16 @@ fileprivate struct FfiConverterSequenceTypeAskarKeyEntry: FfiConverterRustBuffer
         var seq = [AskarKeyEntry]()
         seq.reserveCapacity(Int(len))
         for _ in 0 ..< len {
-            seq.append(try FfiConverterTypeAskarKeyEntry.read(from: &buf))
+            try seq.append(FfiConverterTypeAskarKeyEntry.read(from: &buf))
         }
         return seq
     }
 }
 
 #if swift(>=5.8)
-@_documentation(visibility: private)
+    @_documentation(visibility: private)
 #endif
-fileprivate struct FfiConverterDictionaryStringString: FfiConverterRustBuffer {
+private struct FfiConverterDictionaryStringString: FfiConverterRustBuffer {
     public static func write(_ value: [String: String], into buf: inout [UInt8]) {
         let len = Int32(value.count)
         writeInt(&buf, len)
@@ -3716,7 +3433,7 @@ fileprivate struct FfiConverterDictionaryStringString: FfiConverterRustBuffer {
         let len: Int32 = try readInt(&buf)
         var dict = [String: String]()
         dict.reserveCapacity(Int(len))
-        for _ in 0..<len {
+        for _ in 0 ..< len {
             let key = try FfiConverterString.read(from: &buf)
             let value = try FfiConverterString.read(from: &buf)
             dict[key] = value
@@ -3724,16 +3441,17 @@ fileprivate struct FfiConverterDictionaryStringString: FfiConverterRustBuffer {
         return dict
     }
 }
+
 private let UNIFFI_RUST_FUTURE_POLL_READY: Int8 = 0
 private let UNIFFI_RUST_FUTURE_POLL_MAYBE_READY: Int8 = 1
 
-fileprivate let uniffiContinuationHandleMap = UniffiHandleMap<UnsafeContinuation<Int8, Never>>()
+private let uniffiContinuationHandleMap = UniffiHandleMap<UnsafeContinuation<Int8, Never>>()
 
-fileprivate func uniffiRustCallAsync<F, T>(
+private func uniffiRustCallAsync<F, T>(
     rustFutureFunc: () -> UInt64,
-    pollFunc: (UInt64, @escaping UniffiRustFutureContinuationCallback, UInt64) -> (),
+    pollFunc: (UInt64, @escaping UniffiRustFutureContinuationCallback, UInt64) -> Void,
     completeFunc: (UInt64, UnsafeMutablePointer<RustCallStatus>) -> F,
-    freeFunc: (UInt64) -> (),
+    freeFunc: (UInt64) -> Void,
     liftFunc: (F) throws -> T,
     errorHandler: ((RustBuffer) throws -> Swift.Error)?
 ) async throws -> T {
@@ -3744,7 +3462,7 @@ fileprivate func uniffiRustCallAsync<F, T>(
     defer {
         freeFunc(rustFuture)
     }
-    var pollResult: Int8;
+    var pollResult: Int8
     repeat {
         pollResult = await withUnsafeContinuation {
             pollFunc(
@@ -3763,14 +3481,15 @@ fileprivate func uniffiRustCallAsync<F, T>(
 
 // Callback handlers for an async calls.  These are invoked by Rust when the future is ready.  They
 // lift the return value or error and resume the suspended function.
-fileprivate func uniffiFutureContinuationCallback(handle: UInt64, pollResult: Int8) {
+private func uniffiFutureContinuationCallback(handle: UInt64, pollResult: Int8) {
     if let continuation = try? uniffiContinuationHandleMap.remove(handle: handle) {
         continuation.resume(returning: pollResult)
     } else {
         print("uniffiFutureContinuationCallback invalid handle")
     }
 }
-public func setDefaultLogger()throws  {try rustCallWithError(FfiConverterTypeErrorCode.lift) {
+
+public func setDefaultLogger() throws { try rustCallWithError(FfiConverterTypeErrorCode.lift) {
     uniffi_askar_uniffi_fn_func_set_default_logger($0
     )
 }
@@ -3781,6 +3500,7 @@ private enum InitializationResult {
     case contractVersionMismatch
     case apiChecksumMismatch
 }
+
 // Use a global variable to perform the versioning checks. Swift ensures that
 // the code inside is only computed once.
 private var initializationResult: InitializationResult = {
@@ -3791,256 +3511,256 @@ private var initializationResult: InitializationResult = {
     if bindings_contract_version != scaffolding_contract_version {
         return InitializationResult.contractVersionMismatch
     }
-    if (uniffi_askar_uniffi_checksum_func_set_default_logger() != 11658) {
+    if uniffi_askar_uniffi_checksum_func_set_default_logger() != 11658 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_askar_uniffi_checksum_method_askarcrypto_box_open() != 39219) {
+    if uniffi_askar_uniffi_checksum_method_askarcrypto_box_open() != 39219 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_askar_uniffi_checksum_method_askarcrypto_box_seal() != 61519) {
+    if uniffi_askar_uniffi_checksum_method_askarcrypto_box_seal() != 61519 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_askar_uniffi_checksum_method_askarcrypto_box_seal_open() != 64750) {
+    if uniffi_askar_uniffi_checksum_method_askarcrypto_box_seal_open() != 64750 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_askar_uniffi_checksum_method_askarcrypto_crypto_box() != 54893) {
+    if uniffi_askar_uniffi_checksum_method_askarcrypto_crypto_box() != 54893 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_askar_uniffi_checksum_method_askarcrypto_random_nonce() != 39138) {
+    if uniffi_askar_uniffi_checksum_method_askarcrypto_random_nonce() != 39138 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_askar_uniffi_checksum_method_askarecdh1pu_decrypt_direct() != 36123) {
+    if uniffi_askar_uniffi_checksum_method_askarecdh1pu_decrypt_direct() != 36123 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_askar_uniffi_checksum_method_askarecdh1pu_derive_key() != 13009) {
+    if uniffi_askar_uniffi_checksum_method_askarecdh1pu_derive_key() != 13009 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_askar_uniffi_checksum_method_askarecdh1pu_encrypt_direct() != 27756) {
+    if uniffi_askar_uniffi_checksum_method_askarecdh1pu_encrypt_direct() != 27756 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_askar_uniffi_checksum_method_askarecdh1pu_receiver_unwrap_key() != 13106) {
+    if uniffi_askar_uniffi_checksum_method_askarecdh1pu_receiver_unwrap_key() != 13106 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_askar_uniffi_checksum_method_askarecdh1pu_sender_wrap_key() != 16262) {
+    if uniffi_askar_uniffi_checksum_method_askarecdh1pu_sender_wrap_key() != 16262 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_askar_uniffi_checksum_method_askarecdhes_decrypt_direct() != 23829) {
+    if uniffi_askar_uniffi_checksum_method_askarecdhes_decrypt_direct() != 23829 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_askar_uniffi_checksum_method_askarecdhes_derive_key() != 41345) {
+    if uniffi_askar_uniffi_checksum_method_askarecdhes_derive_key() != 41345 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_askar_uniffi_checksum_method_askarecdhes_encrypt_direct() != 3940) {
+    if uniffi_askar_uniffi_checksum_method_askarecdhes_encrypt_direct() != 3940 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_askar_uniffi_checksum_method_askarecdhes_receiver_unwrap_key() != 29456) {
+    if uniffi_askar_uniffi_checksum_method_askarecdhes_receiver_unwrap_key() != 29456 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_askar_uniffi_checksum_method_askarecdhes_sender_wrap_key() != 18359) {
+    if uniffi_askar_uniffi_checksum_method_askarecdhes_sender_wrap_key() != 18359 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_askar_uniffi_checksum_method_askarentry_category() != 45395) {
+    if uniffi_askar_uniffi_checksum_method_askarentry_category() != 45395 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_askar_uniffi_checksum_method_askarentry_name() != 10774) {
+    if uniffi_askar_uniffi_checksum_method_askarentry_name() != 10774 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_askar_uniffi_checksum_method_askarentry_tags() != 49878) {
+    if uniffi_askar_uniffi_checksum_method_askarentry_tags() != 49878 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_askar_uniffi_checksum_method_askarentry_value() != 48277) {
+    if uniffi_askar_uniffi_checksum_method_askarentry_value() != 48277 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_askar_uniffi_checksum_method_askarkeyentry_algorithm() != 40728) {
+    if uniffi_askar_uniffi_checksum_method_askarkeyentry_algorithm() != 40728 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_askar_uniffi_checksum_method_askarkeyentry_is_local() != 7413) {
+    if uniffi_askar_uniffi_checksum_method_askarkeyentry_is_local() != 7413 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_askar_uniffi_checksum_method_askarkeyentry_load_local_key() != 27509) {
+    if uniffi_askar_uniffi_checksum_method_askarkeyentry_load_local_key() != 27509 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_askar_uniffi_checksum_method_askarkeyentry_metadata() != 1603) {
+    if uniffi_askar_uniffi_checksum_method_askarkeyentry_metadata() != 1603 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_askar_uniffi_checksum_method_askarkeyentry_name() != 41377) {
+    if uniffi_askar_uniffi_checksum_method_askarkeyentry_name() != 41377 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_askar_uniffi_checksum_method_askarkeyentry_tags() != 24843) {
+    if uniffi_askar_uniffi_checksum_method_askarkeyentry_tags() != 24843 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_askar_uniffi_checksum_method_askarlocalkey_aead_decrypt() != 12733) {
+    if uniffi_askar_uniffi_checksum_method_askarlocalkey_aead_decrypt() != 12733 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_askar_uniffi_checksum_method_askarlocalkey_aead_encrypt() != 58017) {
+    if uniffi_askar_uniffi_checksum_method_askarlocalkey_aead_encrypt() != 58017 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_askar_uniffi_checksum_method_askarlocalkey_aead_padding() != 35578) {
+    if uniffi_askar_uniffi_checksum_method_askarlocalkey_aead_padding() != 35578 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_askar_uniffi_checksum_method_askarlocalkey_aead_params() != 19253) {
+    if uniffi_askar_uniffi_checksum_method_askarlocalkey_aead_params() != 19253 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_askar_uniffi_checksum_method_askarlocalkey_aead_random_nonce() != 1565) {
+    if uniffi_askar_uniffi_checksum_method_askarlocalkey_aead_random_nonce() != 1565 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_askar_uniffi_checksum_method_askarlocalkey_algorithm() != 21370) {
+    if uniffi_askar_uniffi_checksum_method_askarlocalkey_algorithm() != 21370 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_askar_uniffi_checksum_method_askarlocalkey_convert_key() != 44738) {
+    if uniffi_askar_uniffi_checksum_method_askarlocalkey_convert_key() != 44738 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_askar_uniffi_checksum_method_askarlocalkey_sign_message() != 40434) {
+    if uniffi_askar_uniffi_checksum_method_askarlocalkey_sign_message() != 40434 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_askar_uniffi_checksum_method_askarlocalkey_to_jwk_public() != 48805) {
+    if uniffi_askar_uniffi_checksum_method_askarlocalkey_to_jwk_public() != 48805 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_askar_uniffi_checksum_method_askarlocalkey_to_jwk_secret() != 56511) {
+    if uniffi_askar_uniffi_checksum_method_askarlocalkey_to_jwk_secret() != 56511 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_askar_uniffi_checksum_method_askarlocalkey_to_jwk_thumbprint() != 53122) {
+    if uniffi_askar_uniffi_checksum_method_askarlocalkey_to_jwk_thumbprint() != 53122 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_askar_uniffi_checksum_method_askarlocalkey_to_jwk_thumbprints() != 25838) {
+    if uniffi_askar_uniffi_checksum_method_askarlocalkey_to_jwk_thumbprints() != 25838 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_askar_uniffi_checksum_method_askarlocalkey_to_key_exchange() != 30418) {
+    if uniffi_askar_uniffi_checksum_method_askarlocalkey_to_key_exchange() != 30418 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_askar_uniffi_checksum_method_askarlocalkey_to_public_bytes() != 34384) {
+    if uniffi_askar_uniffi_checksum_method_askarlocalkey_to_public_bytes() != 34384 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_askar_uniffi_checksum_method_askarlocalkey_to_secret_bytes() != 10345) {
+    if uniffi_askar_uniffi_checksum_method_askarlocalkey_to_secret_bytes() != 10345 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_askar_uniffi_checksum_method_askarlocalkey_unwrap_key() != 14186) {
+    if uniffi_askar_uniffi_checksum_method_askarlocalkey_unwrap_key() != 14186 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_askar_uniffi_checksum_method_askarlocalkey_verify_signature() != 21127) {
+    if uniffi_askar_uniffi_checksum_method_askarlocalkey_verify_signature() != 21127 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_askar_uniffi_checksum_method_askarlocalkey_wrap_key() != 34543) {
+    if uniffi_askar_uniffi_checksum_method_askarlocalkey_wrap_key() != 34543 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_askar_uniffi_checksum_method_askarscan_fetch_all() != 22947) {
+    if uniffi_askar_uniffi_checksum_method_askarscan_fetch_all() != 22947 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_askar_uniffi_checksum_method_askarscan_next() != 3957) {
+    if uniffi_askar_uniffi_checksum_method_askarscan_next() != 3957 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_askar_uniffi_checksum_method_askarsession_close_session() != 7729) {
+    if uniffi_askar_uniffi_checksum_method_askarsession_close_session() != 7729 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_askar_uniffi_checksum_method_askarsession_count() != 43579) {
+    if uniffi_askar_uniffi_checksum_method_askarsession_count() != 43579 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_askar_uniffi_checksum_method_askarsession_fetch() != 50057) {
+    if uniffi_askar_uniffi_checksum_method_askarsession_fetch() != 50057 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_askar_uniffi_checksum_method_askarsession_fetch_all() != 40747) {
+    if uniffi_askar_uniffi_checksum_method_askarsession_fetch_all() != 40747 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_askar_uniffi_checksum_method_askarsession_fetch_all_keys() != 2263) {
+    if uniffi_askar_uniffi_checksum_method_askarsession_fetch_all_keys() != 2263 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_askar_uniffi_checksum_method_askarsession_fetch_key() != 12023) {
+    if uniffi_askar_uniffi_checksum_method_askarsession_fetch_key() != 12023 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_askar_uniffi_checksum_method_askarsession_insert_key() != 1987) {
+    if uniffi_askar_uniffi_checksum_method_askarsession_insert_key() != 1987 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_askar_uniffi_checksum_method_askarsession_remove_all() != 44373) {
+    if uniffi_askar_uniffi_checksum_method_askarsession_remove_all() != 44373 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_askar_uniffi_checksum_method_askarsession_remove_key() != 6352) {
+    if uniffi_askar_uniffi_checksum_method_askarsession_remove_key() != 6352 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_askar_uniffi_checksum_method_askarsession_update() != 38116) {
+    if uniffi_askar_uniffi_checksum_method_askarsession_update() != 38116 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_askar_uniffi_checksum_method_askarsession_update_key() != 11541) {
+    if uniffi_askar_uniffi_checksum_method_askarsession_update_key() != 11541 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_askar_uniffi_checksum_method_askarstore_close_store() != 49438) {
+    if uniffi_askar_uniffi_checksum_method_askarstore_close_store() != 49438 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_askar_uniffi_checksum_method_askarstore_create_profile() != 33766) {
+    if uniffi_askar_uniffi_checksum_method_askarstore_create_profile() != 33766 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_askar_uniffi_checksum_method_askarstore_get_profile_name() != 41732) {
+    if uniffi_askar_uniffi_checksum_method_askarstore_get_profile_name() != 41732 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_askar_uniffi_checksum_method_askarstore_rekey() != 21903) {
+    if uniffi_askar_uniffi_checksum_method_askarstore_rekey() != 21903 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_askar_uniffi_checksum_method_askarstore_remove_profile() != 2613) {
+    if uniffi_askar_uniffi_checksum_method_askarstore_remove_profile() != 2613 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_askar_uniffi_checksum_method_askarstore_scan() != 11799) {
+    if uniffi_askar_uniffi_checksum_method_askarstore_scan() != 11799 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_askar_uniffi_checksum_method_askarstore_session() != 50567) {
+    if uniffi_askar_uniffi_checksum_method_askarstore_session() != 50567 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_askar_uniffi_checksum_method_askarstoremanager_generate_raw_store_key() != 43500) {
+    if uniffi_askar_uniffi_checksum_method_askarstoremanager_generate_raw_store_key() != 43500 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_askar_uniffi_checksum_method_askarstoremanager_migrate_indy_wallet() != 26921) {
+    if uniffi_askar_uniffi_checksum_method_askarstoremanager_migrate_indy_wallet() != 26921 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_askar_uniffi_checksum_method_askarstoremanager_open() != 2047) {
+    if uniffi_askar_uniffi_checksum_method_askarstoremanager_open() != 2047 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_askar_uniffi_checksum_method_askarstoremanager_provision() != 6960) {
+    if uniffi_askar_uniffi_checksum_method_askarstoremanager_provision() != 6960 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_askar_uniffi_checksum_method_askarstoremanager_remove() != 23296) {
+    if uniffi_askar_uniffi_checksum_method_askarstoremanager_remove() != 23296 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_askar_uniffi_checksum_method_encryptedbuffer_ciphertext() != 275) {
+    if uniffi_askar_uniffi_checksum_method_encryptedbuffer_ciphertext() != 275 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_askar_uniffi_checksum_method_encryptedbuffer_ciphertext_tag() != 41056) {
+    if uniffi_askar_uniffi_checksum_method_encryptedbuffer_ciphertext_tag() != 41056 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_askar_uniffi_checksum_method_encryptedbuffer_nonce() != 28640) {
+    if uniffi_askar_uniffi_checksum_method_encryptedbuffer_nonce() != 28640 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_askar_uniffi_checksum_method_encryptedbuffer_tag() != 19126) {
+    if uniffi_askar_uniffi_checksum_method_encryptedbuffer_tag() != 19126 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_askar_uniffi_checksum_method_localkeyfactory_from_jwk() != 64069) {
+    if uniffi_askar_uniffi_checksum_method_localkeyfactory_from_jwk() != 64069 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_askar_uniffi_checksum_method_localkeyfactory_from_jwk_slice() != 42192) {
+    if uniffi_askar_uniffi_checksum_method_localkeyfactory_from_jwk_slice() != 42192 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_askar_uniffi_checksum_method_localkeyfactory_from_public_bytes() != 11783) {
+    if uniffi_askar_uniffi_checksum_method_localkeyfactory_from_public_bytes() != 11783 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_askar_uniffi_checksum_method_localkeyfactory_from_secret_bytes() != 1019) {
+    if uniffi_askar_uniffi_checksum_method_localkeyfactory_from_secret_bytes() != 1019 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_askar_uniffi_checksum_method_localkeyfactory_from_seed() != 24634) {
+    if uniffi_askar_uniffi_checksum_method_localkeyfactory_from_seed() != 24634 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_askar_uniffi_checksum_method_localkeyfactory_generate() != 33358) {
+    if uniffi_askar_uniffi_checksum_method_localkeyfactory_generate() != 33358 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_askar_uniffi_checksum_constructor_askarcrypto_new() != 18784) {
+    if uniffi_askar_uniffi_checksum_constructor_askarcrypto_new() != 18784 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_askar_uniffi_checksum_constructor_askarecdh1pu_new() != 62664) {
+    if uniffi_askar_uniffi_checksum_constructor_askarecdh1pu_new() != 62664 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_askar_uniffi_checksum_constructor_askarecdhes_new() != 9592) {
+    if uniffi_askar_uniffi_checksum_constructor_askarecdhes_new() != 9592 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_askar_uniffi_checksum_constructor_askarstoremanager_new() != 52692) {
+    if uniffi_askar_uniffi_checksum_constructor_askarstoremanager_new() != 52692 {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_askar_uniffi_checksum_constructor_localkeyfactory_new() != 6390) {
+    if uniffi_askar_uniffi_checksum_constructor_localkeyfactory_new() != 6390 {
         return InitializationResult.apiChecksumMismatch
     }
 

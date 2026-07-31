@@ -16,7 +16,7 @@ Kotlin wrappers are generated with [Gobley](https://gobley.dev/).
 The Swift wrappers are distributed as a Swift Package.
 To use the wrappers in your project, add the following dependency to your `Package.swift`:
 ```swift
-    .package(url: "https://github.com/hyperledger/aries-uniffi-wrappers", from: "0.1.0"),
+    .package(url: "https://github.com/hyperledger/aries-uniffi-wrappers", from: "0.3.1"),
 ```
 
 And add the following dependency to your target:
@@ -32,7 +32,6 @@ And add the following dependency to your target:
 ```
 
 Take a look at the tests in `swift/Tests` directory for examples on how to use the wrappers.
-
 
 ### Kotlin
 
