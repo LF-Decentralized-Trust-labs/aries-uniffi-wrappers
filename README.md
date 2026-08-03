@@ -54,16 +54,16 @@ To add a github packages repository in a seperate project you will have to have 
 Now you will add the libraries as a dependency in your `build.gradle.kts` like so:
 ```kotlin
     dependencies {
-        implementation("org.hyperledger:anoncreds_uniffi:0.3.0-wrapper.0")
-        implementation("org.hyperledger:indy_vdr_uniffi:0.3.0-wrapper.0")
-        implementation("org.hyperledger:askar_uniffi:0.3.0-wrapper.0")
+        implementation("org.hyperledger:anoncreds_uniffi:0.3.1")
+        implementation("org.hyperledger:indy_vdr_uniffi:0.3.1")
+        implementation("org.hyperledger:askar_uniffi:0.3.1")
     }
 ```
 
 If you would like to add desktop JVM targets you can do so by also adding them as a dependency like so:
 ```Kotlin
 // Main library
-implementation("org.hyperledger:indy_vdr_uniffi:0.3.0-wrapper.0")
+implementation("org.hyperledger:indy_vdr_uniffi:0.3.1")
 
 // Desktop targets
 listOf(
@@ -73,7 +73,7 @@ listOf(
     "darwin-aarch64",
     "darwin-x86-64"
 ).forEach{
-    implementation("org.hyperledger:indy_vdr_uniffi-jvm:0.3.0-wrapper.0:$it")
+    implementation("org.hyperledger:indy_vdr_uniffi-jvm:0.3.1:$it")
 }
 ```
 
