@@ -6,7 +6,7 @@ on:
 jobs:
   build-linux:
     name: Build Linux Artifacts
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: kotlin
