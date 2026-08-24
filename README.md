@@ -79,6 +79,16 @@ listOf(
 
 Take a look at the tests in `kotlin/${library}/src/commonTest` for usage examples.
 
+## Namespaced anoncreds OpenSSL proof of concept
+
+This repository contains a source-build proof of concept for an iOS anoncreds
+archive that can coexist with other statically linked OpenSSL implementations.
+It renames the complete vendored OpenSSL symbol surface to
+`anoncreds_ossl_*` without changing any anoncreds UniFFI export.
+
+See [OPENSSL-NAMESPACE.md](OPENSSL-NAMESPACE.md) for the build and verification
+contract. This is an experimental build path, not a published release.
+
 ## Contributing
 
 Pull requests are welcome! We enforce [developer certificate of origin](https://developercertificate.org/) (DCO) commit signing. See guidance [here](https://github.com/apps/dco).
