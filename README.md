@@ -79,15 +79,15 @@ listOf(
 
 Take a look at the tests in `kotlin/${library}/src/commonTest` for usage examples.
 
-## Namespaced anoncreds OpenSSL proof of concept
+## Anoncreds OpenSSL namespace on Apple platforms
 
-This repository contains a source-build proof of concept for an iOS anoncreds
-archive that can coexist with other statically linked OpenSSL implementations.
-It renames the complete vendored OpenSSL symbol surface to
-`anoncreds_ossl_*` without changing any anoncreds UniFFI export.
+The normal anoncreds Apple build path isolates its vendored OpenSSL symbols
+under `anoncreds_ossl_*`. This allows a consuming application to link another
+static OpenSSL provider without link-order-dependent symbol resolution, while
+preserving the existing Kotlin and UniFFI APIs.
 
-See [OPENSSL-NAMESPACE.md](OPENSSL-NAMESPACE.md) for the build and verification
-contract. This is an experimental build path, not a published release.
+See [OPENSSL-NAMESPACE.md](OPENSSL-NAMESPACE.md) for target coverage, build
+integration, environment receipts, and regression validation.
 
 ## Contributing
 

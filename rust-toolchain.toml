@@ -1,5 +1,0 @@
-[toolchain]
-channel = "1.85.1"
-profile = "minimal"
-components = ["llvm-tools-preview"]
-targets = ["aarch64-apple-ios", "aarch64-apple-ios-sim"]

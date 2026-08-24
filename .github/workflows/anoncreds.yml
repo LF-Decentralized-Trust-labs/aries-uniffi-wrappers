@@ -65,7 +65,7 @@ jobs:
 
   publish-macos:
     name: Publish to Maven Local on macOS
-    runs-on: macos-latest
+    runs-on: macos-15
     defaults:
       run:
         working-directory: kotlin
@@ -73,11 +73,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Select Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: '16.2'
+
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@master
         with:
           toolchain: 1.86.0
           targets: aarch64-linux-android,aarch64-apple-ios,aarch64-apple-ios-sim,x86_64-apple-ios,aarch64-apple-darwin,x86_64-apple-darwin
+          components: llvm-tools-preview
 
       - name: Setup Java
         uses: actions/setup-java@v4

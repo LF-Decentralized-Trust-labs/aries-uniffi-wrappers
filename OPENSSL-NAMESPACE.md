@@ -1,58 +1,104 @@
-# Anoncreds OpenSSL namespace proof of concept
+# Anoncreds OpenSSL symbol namespace
 
-This proof of concept builds the anoncreds `0.3.1` iOS static archive with a private
-OpenSSL namespace. It is intended to prove that a Kotlin/Native consumer can
-embed anoncreds in its KLIB without requiring a separate dynamic XCFramework or
-depending on application link order.
+The anoncreds Apple archives statically contain the vendored OpenSSL objects.
+Those objects use the private `anoncreds_ossl_*` symbol namespace so an
+application can safely link another static OpenSSL provider without depending
+on library order.
 
-## Proof-of-concept contract
+This is part of the normal Apple build path. It does not introduce a separate
+artifact version, public Kotlin API, UniFFI ABI, or runtime framework.
 
-- Source: immutable tag `0.3.1`, commit
-  `c4d4eea1abf17ac66a90ba2216801c23ecaad53c`
-- Rust toolchain: `1.85.1`
-- Apple targets: `aarch64-apple-ios` and `aarch64-apple-ios-sim`
-- Minimum iOS version: `15.0`
-- OpenSSL namespace: `anoncreds_ossl_*`
-- UniFFI exports: unchanged from upstream
+## Published target coverage
 
-The build first compiles anoncreds and its vendored OpenSSL from source. It
-derives a rename map from every external definition in the resulting
-`libcrypto.a` and `libssl.a`, then applies that map to the complete
-`libanoncreds_uniffi.a`. Applying the map to the final archive updates both
-definitions and internal references.
+The namespace pass runs for every Apple target published by the Kotlin module:
 
-## Build
+- `aarch64-apple-ios` (`iosArm64`)
+- `aarch64-apple-ios-sim` (`iosSimulatorArm64`)
+- `x86_64-apple-ios` (`iosX64`)
+- `aarch64-apple-darwin` (`macosArm64`)
+- `x86_64-apple-darwin` (`macosX64`)
 
-Install the pinned toolchain and Apple targets:
+The Swift XCFramework builder applies the same pass to these five archives.
+Each build path retains its existing deployment target: the KMP Apple mobile
+configuration remains iOS 10.0, while the Swift package retains its existing
+iOS 15 requirement.
+
+## Transformation contract
+
+`scripts/namespace_anoncreds_openssl.py` performs the following fail-closed
+steps after Cargo builds `libanoncreds_uniffi.a`:
+
+1. Locate the exact vendored `libcrypto.a` and `libssl.a` produced by
+   `openssl-sys` for that target.
+2. Read global definitions with `llvm-nm -A`, retaining archive-member
+   provenance and definition multiplicity.
+3. Require each source definition to have exactly the same provenance in the
+   final anoncreds archive. This prevents a same-named definition from an
+   unrelated object from being renamed accidentally.
+4. Apply the complete map to the final archive with LLVM `--redefine-syms`,
+   updating definitions and internal references together.
+5. Reject remaining unprefixed definitions or references, missing or
+   unexpected prefixed definitions, provenance changes, or a changed UniFFI
+   surface.
+
+The pass is idempotent. An already namespaced archive is verified without a
+second rename; a Cargo task that rewrites its output is transformed again.
+
+## Toolchain and build environment
+
+The repository does not pin a root Rust toolchain for this feature. The
+release workflow selects its Rust version explicitly and installs the matching
+LLVM tools:
 
 ```bash
-rustup toolchain install 1.85.1 --profile minimal
-rustup target add --toolchain 1.85.1 \
-  aarch64-apple-ios aarch64-apple-ios-sim
-rustup component add --toolchain 1.85.1 llvm-tools-preview
+rustup component add llvm-tools-preview --toolchain <release-toolchain>
 ```
 
-Run the deterministic builder from the repository root:
+The production workflow pins both its macOS runner generation and Xcode
+version. Every target writes a JSON receipt containing the Rust LLVM versions,
+Xcode, Apple clang, host macOS, and iPhoneOS, iPhoneSimulator, and macOS SDK
+versions. Receipts are written under:
+
+```text
+kotlin/anoncreds/build/reports/openssl-namespace/
+anoncreds/out/openssl-namespace/
+```
+
+The receipt's replay assertion is intentionally limited to the LLVM symbol
+transformation. It does not claim that two independent C/Rust source builds
+are byte-for-byte reproducible.
+
+## Validation
+
+Run the collision fixture:
 
 ```bash
-python3 scripts/build_anoncreds_openssl_namespaced.py \
-  --output-dir build/openssl-namespaced/output
+tests/openssl-namespace/run.sh
 ```
 
-The output manifest records the source commit, tool versions, input and output
-hashes, symbol-map hashes, symbol counts, and UniFFI export counts for both
-Apple targets.
+The fixture links a namespaced archive with a second provider that defines the
+same unprefixed symbols. It first proves that the unmodified archive binds at
+least one consumer to the wrong provider in both static-library orders, then
+verifies that the namespaced archive reaches the correct implementation in
+both orders.
 
-## Required verification
+Build the KMP Apple archives through their normal Cargo tasks:
 
-The builder fails unless all of these conditions hold:
+```bash
+cd kotlin
+./gradlew \
+  :anoncreds_uniffi:cargoBuildIosArm64Release \
+  :anoncreds_uniffi:cargoBuildIosSimulatorArm64Release \
+  :anoncreds_uniffi:cargoBuildIosX64Release \
+  :anoncreds_uniffi:cargoBuildMacOSArm64Release \
+  :anoncreds_uniffi:cargoBuildMacOSX64Release
+```
 
-1. The anoncreds source tree exactly matches upstream `0.3.1`.
-2. Every OpenSSL global definition and reference represented by the vendored
-   libraries is absent under its unprefixed name in the final archive.
-3. Every mapped `anoncreds_ossl_*` symbol exists in the final archive.
-4. The anoncreds UniFFI export set is exactly unchanged by the transform.
-5. Repeating the pinned LLVM transformation produces the same archive hash.
+Build the Swift XCFramework through its existing entry point:
 
-Any release integration must additionally compare the UniFFI surface to the
-published upstream KLIB and verify that non-Apple artifacts remain unchanged.
+```bash
+anoncreds/build-swift-framework.sh
+```
+
+CI runs the fixture and both Apple packaging paths. Android, JVM, Linux, and
+Windows build paths do not invoke the namespace pass.

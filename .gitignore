@@ -10,5 +10,3 @@ DerivedData/
 target/
 out/
 .kotlin
-/.cargo-home
-/build/openssl-namespaced

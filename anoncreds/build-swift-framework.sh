@@ -16,6 +16,8 @@ HEADER_NAME="${NAME}FFI.h"
 OUT_PATH="out"
 MIN_IOS_VERSION="15.0"
 WRAPPER_PATH="../swift/Sources/Anoncreds"
+NAMESPACE_SCRIPT="../scripts/namespace_anoncreds_openssl.py"
+PYTHON_BIN=${PYTHON_BIN:-"python3"}
 
 AARCH64_APPLE_IOS_PATH="./target/aarch64-apple-ios/release"
 AARCH64_APPLE_IOS_SIM_PATH="./target/aarch64-apple-ios-sim/release"
@@ -27,8 +29,8 @@ targets=("aarch64-apple-ios" "aarch64-apple-ios-sim" "x86_64-apple-ios" "aarch64
 
 # Keep Rust, clang, and dependencies such as openssl-sys on the same minimum
 # Apple OS versions. Without these exports/link args, newer Xcode SDKs can build
-# objects for iOS 26.0 while cargo links the final iOS library as iOS 10.0,
-# which fails with symbols such as ___chkstk_darwin during aarch64 iOS linking.
+# objects for the SDK version while cargo links the final library at a different
+# minimum, which fails with symbols such as ___chkstk_darwin during linking.
 export IPHONEOS_DEPLOYMENT_TARGET="$MIN_IOS_VERSION"
 export MACOSX_DEPLOYMENT_TARGET="12.0"
 
@@ -53,6 +55,11 @@ for target in "${targets[@]}"; do
   esac
 
   cargo build --release --target $target
+
+  "$PYTHON_BIN" "$NAMESPACE_SCRIPT" \
+    --archive "./target/$target/release/$LIBRARY_NAME" \
+    --target "$target" \
+    --receipt "$OUT_PATH/openssl-namespace/$target.json"
 done
 
 # Generate swift wrapper
