@@ -21,3 +21,5 @@ include(":anoncreds")
 project(":anoncreds").name = "anoncreds_uniffi"
 include(":indy-vdr")
 project(":indy-vdr").name = "indy_vdr_uniffi"
+include(":indy-besu")
+project(":indy-besu").name = "indy_besu_vdr_uniffi"

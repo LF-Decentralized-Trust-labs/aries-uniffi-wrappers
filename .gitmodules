@@ -1,0 +1,4 @@
+[submodule "indy-besu"]
+	path = indy-besu
+	url = https://github.com/hyperledger-indy/indy-besu.git
+	shallow = true
