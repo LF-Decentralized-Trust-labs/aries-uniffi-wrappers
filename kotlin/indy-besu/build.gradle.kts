@@ -72,8 +72,8 @@ uniffi {
     bindgenFromRegistry("gobley-uniffi-bindgen", "0.3.7")
 
     generateFromLibrary {
-        packageName = "indy_besu_vdr_uniffi"
-        cdylibName = "indy_besu_vdr_uniffi"
+        packageName = "indy_besu_vdr"
+        cdylibName = "indy_besu_vdr"
         this@generateFromLibrary.disableJavaCleaner = true
     }
 }
@@ -206,7 +206,7 @@ kotlin {
 
 android {
     sourceSets["androidTest"].manifest.srcFile("src/androidTest/AndroidManifest.xml")
-    namespace = "indy_besu_vdr_uniffi"
+    namespace = "indy_besu_vdr"
     compileSdk = 35
     ndkVersion = "28.2.13676358"
 

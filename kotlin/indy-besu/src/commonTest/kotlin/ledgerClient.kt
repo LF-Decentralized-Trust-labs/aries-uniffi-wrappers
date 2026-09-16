@@ -1,6 +1,6 @@
-import indy_besu_vdr_uniffi.LedgerClient
-import indy_besu_vdr_uniffi.ContractConfig
-import indy_besu_vdr_uniffi.Status
+import indy_besu_vdr.LedgerClient
+import indy_besu_vdr.ContractConfig
+import indy_besu_vdr.Status
 import kotlin.test.Test
 import kotlin.test.assertTrue
 import kotlinx.coroutines.runBlocking

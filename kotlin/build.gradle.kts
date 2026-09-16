@@ -6,7 +6,7 @@ plugins {
 
 allprojects{
     group = "org.hyperledger"
-    version = "0.3.1"
+    version = "0.3.1.1"
 }
 
 
@@ -15,4 +15,5 @@ tasks.register("publishAllToMavenLocal"){
     dependsOn("anoncreds_uniffi:publishToMavenLocal")
     dependsOn("askar_uniffi:publishToMavenLocal")
     dependsOn("indy_vdr_uniffi:publishToMavenLocal")
+    dependsOn("indy_besu_vdr:publishToMavenLocal")
 }
