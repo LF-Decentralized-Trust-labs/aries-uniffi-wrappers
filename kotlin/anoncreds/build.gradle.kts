@@ -94,6 +94,44 @@ uniffi {
     }
 }
 
+// anoncreds statically embeds vendored OpenSSL. Namespace that symbol surface
+// before Gobley packages any Apple archive so it cannot bind to another
+// OpenSSL provider in the consuming application. Keep this on the Cargo task:
+// it also covers publication tasks without changing the public Kotlin API.
+val appleOpenSslNamespaceTargets = mapOf(
+    "cargoBuildIosArm64Release" to "aarch64-apple-ios",
+    "cargoBuildIosSimulatorArm64Release" to "aarch64-apple-ios-sim",
+    "cargoBuildIosX64Release" to "x86_64-apple-ios",
+    "cargoBuildMacOSArm64Release" to "aarch64-apple-darwin",
+    "cargoBuildMacOSX64Release" to "x86_64-apple-darwin",
+)
+
+tasks.configureEach {
+    val rustTarget = appleOpenSslNamespaceTargets[name] ?: return@configureEach
+    // Cargo can report Fresh after a previous namespace pass. Execute the task
+    // action so the idempotent verifier still runs before downstream packaging.
+    outputs.upToDateWhen { false }
+    doLast {
+        val archive = layout.projectDirectory.file(
+            "rust/target/$rustTarget/release/libanoncreds_uniffi.a"
+        ).asFile
+        val receipt = layout.buildDirectory.file(
+            "reports/openssl-namespace/$rustTarget.json"
+        ).get().asFile
+        val namespaceProcess = providers.exec {
+            commandLine(
+                "python3",
+                rootProject.file("../scripts/namespace_anoncreds_openssl.py"),
+                "--archive", archive,
+                "--target", rustTarget,
+                "--receipt", receipt,
+            )
+        }
+        namespaceProcess.result.get().assertNormalExitValue()
+        logger.lifecycle(namespaceProcess.standardOutput.asText.get())
+    }
+}
+
 // Stub secrets to let the project sync and build without the publication values set up
 ext["githubUsername"] = null
 ext["githubToken"] = null
