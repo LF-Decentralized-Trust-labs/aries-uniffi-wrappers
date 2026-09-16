@@ -106,7 +106,7 @@ jobs:
           path: kotlin/indy-vdr/build/libs
 
   publish-macos:
-    name: Publish to Maven Local on macOS
+    name: Publish to Github Repository on macOS
     runs-on: macos-latest
     defaults:
       run:
