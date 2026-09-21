@@ -72,8 +72,9 @@ uniffi {
     bindgenFromRegistry("gobley-uniffi-bindgen", "0.3.7")
 
     generateFromLibrary {
+        namespace = "indy_besu_vdr"
         packageName = "indy_besu_vdr"
-        cdylibName = "indy_besu_vdr"
+        cdylibName = "indy_besu_vdr_uniffi"
         this@generateFromLibrary.disableJavaCleaner = true
     }
 }

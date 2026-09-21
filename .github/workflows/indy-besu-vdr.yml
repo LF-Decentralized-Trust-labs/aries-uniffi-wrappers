@@ -69,7 +69,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   publish-macos:
-    if: false
     name: Publish to Github Repository on macOS
     runs-on: macos-latest
     defaults:
